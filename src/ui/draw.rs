@@ -68,8 +68,12 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             .iter()
             .enumerate()
             .map(|(_i, p)| {
-                let title = format!("{} {}", p.name, p.version);
-                let content = Span::raw(format!("{: <30} {}", title, p.description));
+                let package: Vec<&str> = p.name.split("/").collect();
+                let provider = package.get(0).unwrap_or(&""); //splitted it
+                let pkg_name = package.get(1).unwrap_or(&""); //and then
+                //formatted
+                let content =
+                    Span::raw(format!("{: <30} {: <20} {}", pkg_name, p.version, provider));
                 ListItem::new(Line::from(content))
             })
             .collect()

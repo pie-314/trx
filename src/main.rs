@@ -10,10 +10,8 @@ use ui::app::App;
 fn main() -> Result<()> {
     color_eyre::install()?;
     let terminal = init();
-
     let (result_tx, result_rx): (mpsc::Sender<Vec<Package>>, mpsc::Receiver<Vec<Package>>) =
         mpsc::channel();
-
     let app_result = App::new(result_tx.clone(), result_rx).run(terminal);
     ratatui::restore();
     app_result

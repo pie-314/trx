@@ -1,20 +1,12 @@
-use std::process::Command;
+use std::{fmt::format, process::Command};
 
-/// A simple in-memory representation of a package returned by pacman queries.
-/// Using a struct lets the UI work with structured data instead of raw printed text.
 #[derive(Debug, Clone)]
 pub struct Package {
-    /// package name (e.g. `bash`)
     pub name: String,
-    /// version string (e.g. `5.1.16-1`)
     pub version: String,
-    /// short description line (from pacman output)
     pub description: String,
 }
 
-/// Parse lines where pacman output alternates between a header line and a description line,
-/// matching the parsing approach used previously in this repo.
-/// This keeps behavior similar to the original code but returns structured data.
 fn parse_alternating_lines(lines: &[&str]) -> Vec<Package> {
     let mut res = Vec::new();
     let mut i = 0;
@@ -63,4 +55,25 @@ pub fn list_installed_vec() -> Vec<Package> {
     let output_str = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = output_str.lines().collect();
     parse_alternating_lines(&lines)
+}
+
+//requires sudo
+pub fn package_installer(package: &str) {
+    println!("hello world");
+    let cmd = format!("sudo pacman -S {}", package);
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .expect("Failed to execute pacman -Qe");
+}
+
+// this gives details, return value is not yet defined, maybe hashmap
+pub fn details_package(package: &str) {
+    let cmd = format!("pacman -Si {}", package);
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .expect("Failed to execute pacman -Qe");
 }

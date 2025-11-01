@@ -3,9 +3,8 @@ use color_eyre::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
-    widgets::ListState, // <-- import ListState here
+    widgets::ListState,
 };
-
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
@@ -27,7 +26,7 @@ pub struct App {
 impl App {
     pub fn new(result_tx: Sender<Vec<Package>>, result_rx: Receiver<Vec<Package>>) -> Self {
         let mut list_state = ListState::default();
-        list_state.select(None); // nothing selected initially
+        list_state.select(None);
 
         Self {
             input: String::new(),
@@ -44,13 +43,13 @@ impl App {
     }
 
     fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.character_index.saturating_sub(1);
-        self.character_index = self.clamp_cursor(cursor_moved_left);
+        let new_index = self.character_index.saturating_sub(1);
+        self.character_index = self.clamp_cursor(new_index);
     }
 
     fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.character_index.saturating_add(1);
-        self.character_index = self.clamp_cursor(cursor_moved_right);
+        let new_index = self.character_index.saturating_add(1);
+        self.character_index = self.clamp_cursor(new_index);
     }
 
     fn enter_char(&mut self, new_char: char) {
@@ -79,12 +78,8 @@ impl App {
         }
     }
 
-    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.input.chars().count())
-    }
-
-    fn reset_cursor(&mut self) {
-        self.character_index = 0;
+    fn clamp_cursor(&self, new_pos: usize) -> usize {
+        new_pos.clamp(0, self.input.chars().count())
     }
 
     fn submit_message(&mut self) {
@@ -94,12 +89,20 @@ impl App {
         }
 
         self.loading = true;
-
         let tx = self.result_tx.clone();
+
         thread::spawn(move || {
             let pkgs = pacman::search_vec(&query);
             let _ = tx.send(pkgs);
         });
+    }
+
+    fn install_package(&mut self) {
+        if let Some(pkg) = self.packages.get(self.selected).cloned() {
+            thread::spawn(move || {
+                pacman::package_installer(&pkg.name);
+            });
+        }
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
@@ -124,12 +127,13 @@ impl App {
 
             terminal.draw(|frame| draw_ui(frame, &mut self))?;
 
-            if event::poll(std::time::Duration::from_millis(1))? {
+            if event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
                     match self.input_mode {
                         InputMode::Normal => match key.code {
                             KeyCode::Char('e') => self.input_mode = InputMode::Editing,
                             KeyCode::Char('q') => return Ok(()),
+                            KeyCode::Char('i') => self.install_package(),
                             KeyCode::Up => {
                                 if !self.packages.is_empty() && self.selected > 0 {
                                     self.selected -= 1;
@@ -161,7 +165,8 @@ impl App {
                         _ => {}
                     }
                 }
-            } // else, no key event within timeout: loop continues to re-check result_rx
+            }
         }
     }
 }
+
