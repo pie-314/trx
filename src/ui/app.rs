@@ -17,7 +17,6 @@ pub struct App {
     pub input_mode: InputMode,
     pub packages: Vec<Package>,
     pub packages_installation: Vec<Package>,
-    pub selected_package: Option<String>,
     pub selected: usize,
     pub list_state: ListState,
     pub messages: Vec<String>,
@@ -39,7 +38,6 @@ impl App {
             packages: Vec::new(),
             packages_installation: Vec::new(),
             selected: 0,
-            selected_package: None,
             list_state,
             loading: false,
             result_tx,
@@ -102,15 +100,7 @@ impl App {
         });
     }
 
-    fn install_package(&mut self) {
-        if let Some(pkg) = self.packages.get(self.selected).cloned() {
-            thread::spawn(move || {
-                pacman::package_installer(&pkg.name);
-            });
-        }
-    }
-
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         loop {
             if let Ok(pkgs) = self.result_rx.try_recv() {
                 self.packages = pkgs;
@@ -137,13 +127,17 @@ impl App {
                     match self.input_mode {
                         InputMode::Normal => match key.code {
                             KeyCode::Enter => {
-                                if let Some(ref pkg) = self.selected_package {
-                                    execute_external_command(&mut terminal, "pacman -S", &[&pkg])?;
+                                if let Some(pkg) = self.packages.get(self.selected) {
+                                    let pure_name = pkg.name.split('/').last().unwrap_or(&pkg.name);
+                                    execute_external_command(
+                                        terminal,
+                                        "sudo",
+                                        &["pacman", "-S", pure_name],
+                                    )?;
                                 }
                             }
                             KeyCode::Char('e') => self.input_mode = InputMode::Editing,
                             KeyCode::Char('q') => return Ok(()),
-                            KeyCode::Char('i') => self.install_package(),
                             KeyCode::Up => {
                                 if !self.packages.is_empty() && self.selected > 0 {
                                     self.selected -= 1;
