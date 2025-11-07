@@ -2,47 +2,58 @@ mod pacman;
 mod ui;
 
 use color_eyre::Result;
+use ratatui::crossterm::{
+    cursor::{Hide, Show},
+    execute,
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use std::process::Command;
+
 use pacman::Package;
+use ratatui::Terminal;
 use ratatui::init;
+use ratatui::prelude::CrosstermBackend;
+use std::io;
 use std::sync::mpsc;
 use ui::app::App;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    let terminal = init();
+    let mut terminal = init(); // Make terminal mutable
     let (result_tx, result_rx): (mpsc::Sender<Vec<Package>>, mpsc::Receiver<Vec<Package>>) =
         mpsc::channel();
     let app_result = App::new(result_tx.clone(), result_rx).run(terminal);
     ratatui::restore();
     app_result
 }
-/*fn main() {
-    println!("1 for searching");
-    println!("2 for current packages");
-    println!("3 for exit");
-    loop {
-        println!("choice: ");
-        let mut user_input = String::new();
-        io::stdin()
-            .read_line(&mut user_input)
-            .expect("Failed to read line");
 
-        let trimmed_input = user_input.trim();
+// Put this in src/ui/app.rs instead, or make it public
+pub fn execute_external_command(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    cmd: &str,
+    args: &[&str],
+) -> Result<()> {
+    // Suspend TUI
+    terminal::disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(terminal.backend_mut(), Show)?;
 
-        if trimmed_input == "1" {
-            pacman::list_packages_installed();
-        } else if trimmed_input == "2" {
-            println!("package name: ");
-            let mut package = String::new();
-            io::stdin()
-                .read_line(&mut package)
-                .expect("Failed to read line");
+    // Execute command
+    println!("\nExecuting: {} {}\n", cmd, args.join(" "));
+    let status = Command::new(cmd).args(args).status();
+    println!(
+        "\nCommand finished: {:?}\nPress Enter to continue...",
+        status
+    );
 
-            let trimmed_package = package.trim();
-            pacman::search(trimmed_package);
-        } else {
-            println!("bye bye !!!");
-            break;
-        }
-    }
-}*/
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    // Resume TUI
+    execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    execute!(terminal.backend_mut(), Hide)?;
+    terminal.clear()?;
+
+    Ok(())
+}

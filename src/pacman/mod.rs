@@ -1,4 +1,4 @@
-use std::{fmt::format, process::Command};
+use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct Package {

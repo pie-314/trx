@@ -1,3 +1,4 @@
+use crate::execute_external_command;
 use crate::ui::{draw::draw_ui, input::InputMode};
 use color_eyre::Result;
 use ratatui::{
@@ -15,6 +16,8 @@ pub struct App {
     pub character_index: usize,
     pub input_mode: InputMode,
     pub packages: Vec<Package>,
+    pub packages_installation: Vec<Package>,
+    pub selected_package: Option<String>,
     pub selected: usize,
     pub list_state: ListState,
     pub messages: Vec<String>,
@@ -34,7 +37,9 @@ impl App {
             messages: Vec::new(),
             character_index: 0,
             packages: Vec::new(),
+            packages_installation: Vec::new(),
             selected: 0,
+            selected_package: None,
             list_state,
             loading: false,
             result_tx,
@@ -131,6 +136,11 @@ impl App {
                 if let Event::Key(key) = event::read()? {
                     match self.input_mode {
                         InputMode::Normal => match key.code {
+                            KeyCode::Enter => {
+                                if let Some(ref pkg) = self.selected_package {
+                                    execute_external_command(&mut terminal, "pacman -S", &[&pkg])?;
+                                }
+                            }
                             KeyCode::Char('e') => self.input_mode = InputMode::Editing,
                             KeyCode::Char('q') => return Ok(()),
                             KeyCode::Char('i') => self.install_package(),
@@ -169,4 +179,3 @@ impl App {
         }
     }
 }
-
