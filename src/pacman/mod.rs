@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process::Command;
 
 #[derive(Debug, Clone)]
@@ -69,11 +70,20 @@ pub fn package_installer(package: &str) {
 }
 
 // this gives details, return value is not yet defined, maybe hashmap
-pub fn details_package(package: &str) {
+
+pub fn details_package(package: &str) -> Option<HashMap<String, String>> {
     let cmd = format!("pacman -Si {}", package);
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
-        .output()
-        .expect("Failed to execute pacman -Qe");
+    let output = Command::new("sh").arg("-c").arg(cmd).output().ok()?; // Return None if command fails
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    let mut info = HashMap::new();
+
+    for line in output_str.lines() {
+        if let Some((key, value)) = line.split_once(" : ") {
+            info.insert(key.trim().to_string(), value.trim().to_string());
+        }
+    }
+
+    if info.is_empty() { None } else { Some(info) }
 }

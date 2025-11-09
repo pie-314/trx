@@ -3,11 +3,12 @@ use ratatui::{
     layout::{Constraint, Layout, Position},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, List, ListItem, Paragraph},
+    widgets::{Block, List, ListItem, Paragraph, Wrap},
 };
 
 use crate::ui::{app::App, input::InputMode};
 
+use crate::pacman::details_package;
 /// draw_ui updated to accept a mutable App reference so it can use App.list_state.
 /// The important change: use render_stateful_widget with app.list_state so ratatui keeps the
 /// selected item visible (scrolls) and can apply highlight styling.
@@ -68,12 +69,24 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             .iter()
             .enumerate()
             .map(|(_i, p)| {
+                //package name and provider
                 let package: Vec<&str> = p.name.split("/").collect();
-                let provider = package.get(0).unwrap_or(&""); //splitted it
-                let pkg_name = package.get(1).unwrap_or(&""); //and then
+                let pkg_name = if package.get(1).unwrap_or(&"").len() > 24 {
+                    format!("{}...", &package.get(1).unwrap_or(&"")[..22])
+                } else {
+                    package.get(1).unwrap_or(&"").to_string()
+                }; //splitted it
+                let provider = package.get(0).unwrap_or(&""); //and then
+                // version formatting
+
+                let version = if p.version.len() > 12 {
+                    format!("{}...", &p.version[..8]) // first 5 + "..."
+                } else {
+                    p.version.clone()
+                };
                 //formatted
                 let content =
-                    Span::raw(format!("{: <30} {: <20} {}", pkg_name, p.version, provider));
+                    Span::raw(format!("{: <30} {: <20} {} ", pkg_name, version, provider));
                 ListItem::new(Line::from(content))
             })
             .collect()
@@ -96,15 +109,31 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             "No package selected".to_string()
         }
     } else {
-        let idx = app.selected.min(app.packages.len().saturating_sub(1));
-        let p = &app.packages[idx];
-        format!(
-            "Name: {}\nVersion: {}\n\n{}",
-            p.name, p.version, p.description
-        )
+        // check if selection changed OR no details loaded yet
+        if app.selected != app.last_selected {
+            let pkg_name = &app.packages[app.selected].name;
+            app.details = details_package(pkg_name); // fetch new data
+            app.last_selected = app.selected; // update last seen selection
+        }
+
+        if let Some(ref info) = app.details {
+            let mut sorted: Vec<_> = info.iter().collect();
+            sorted.sort_by_key(|(k, _)| *k); // Sort by key
+
+            sorted
+                .iter()
+                .map(|(k, v)| format!("{:<15} {}", k, v))
+                .collect::<Vec<String>>()
+                .join("\n")
+        } else {
+            "Loading details...".to_string()
+        }
     };
+
     frame.render_widget(
-        Paragraph::new(details_text).block(Block::bordered().title("Details")),
+        Paragraph::new(details_text)
+            .wrap(Wrap { trim: true })
+            .block(Block::bordered().title("Details")),
         details_area,
     );
 

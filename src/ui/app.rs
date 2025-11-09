@@ -21,10 +21,11 @@ pub struct App {
     pub list_state: ListState,
     pub messages: Vec<String>,
     pub loading: bool,
+    pub details: Option<std::collections::HashMap<String, String>>,
+    pub last_selected: usize,
     result_tx: Sender<Vec<Package>>,
     result_rx: Receiver<Vec<Package>>,
 }
-
 impl App {
     pub fn new(result_tx: Sender<Vec<Package>>, result_rx: Receiver<Vec<Package>>) -> Self {
         let mut list_state = ListState::default();
@@ -40,6 +41,8 @@ impl App {
             selected: 0,
             list_state,
             loading: false,
+            details: None,
+            last_selected: usize::MAX,
             result_tx,
             result_rx,
         }
