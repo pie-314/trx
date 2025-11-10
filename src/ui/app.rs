@@ -10,13 +10,15 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
 use crate::pacman::{self, Package};
+use std::collections::HashSet;
 
 pub struct App {
     pub input: String,
     pub character_index: usize,
     pub input_mode: InputMode,
     pub packages: Vec<Package>,
-    pub packages_installation: Vec<Package>,
+    pub checked: Vec<bool>,
+    pub selected_names: HashSet<String>,
     pub selected: usize,
     pub list_state: ListState,
     pub messages: Vec<String>,
@@ -37,7 +39,8 @@ impl App {
             messages: Vec::new(),
             character_index: 0,
             packages: Vec::new(),
-            packages_installation: Vec::new(),
+            checked: Vec::new(),
+            selected_names: HashSet::new(),
             selected: 0,
             list_state,
             loading: false,
@@ -107,6 +110,13 @@ impl App {
         loop {
             if let Ok(pkgs) = self.result_rx.try_recv() {
                 self.packages = pkgs;
+
+                // Update check flags based on global selection set
+                self.checked = self
+                    .packages
+                    .iter()
+                    .map(|p| self.selected_names.contains(&p.name))
+                    .collect();
                 self.selected = 0;
                 self.loading = false;
 
@@ -139,15 +149,45 @@ impl App {
                                     )?;
                                 }
                             }
+
+                            KeyCode::Char('i') => {
+                                if !self.selected_names.is_empty() {
+                                    let args: Vec<String> = std::iter::once("pacman".to_string())
+                                        .chain(std::iter::once("-S".to_string()))
+                                        .chain(self.selected_names.iter().cloned())
+                                        .collect();
+
+                                    let args_ref: Vec<&str> =
+                                        args.iter().map(|s| s.as_str()).collect();
+
+                                    execute_external_command(terminal, "sudo", &args_ref)?;
+                                }
+                            }
+                            KeyCode::Char(' ') => {
+                                if !self.packages.is_empty() {
+                                    let pkg = &self.packages[self.selected];
+                                    let name = pkg.name.clone();
+
+                                    // flip checkbox state
+                                    let is_checked = !self.checked[self.selected];
+                                    self.checked[self.selected] = is_checked;
+
+                                    if is_checked {
+                                        self.selected_names.insert(name);
+                                    } else {
+                                        self.selected_names.remove(&name);
+                                    }
+                                }
+                            }
                             KeyCode::Char('e') => self.input_mode = InputMode::Editing,
                             KeyCode::Char('q') => return Ok(()),
-                            KeyCode::Up => {
+                            KeyCode::Up | KeyCode::Char('k') => {
                                 if !self.packages.is_empty() && self.selected > 0 {
                                     self.selected -= 1;
                                     self.list_state.select(Some(self.selected));
                                 }
                             }
-                            KeyCode::Down => {
+                            KeyCode::Down | KeyCode::Char('j') => {
                                 if !self.packages.is_empty()
                                     && self.selected + 1 < self.packages.len()
                                 {

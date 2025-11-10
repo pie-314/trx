@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::process::Command;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct Package {
     pub name: String,
     pub version: String,

@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::ui::{app::App, input::InputMode};
+use textwrap::wrap;
 
 use crate::pacman::details_package;
 /// draw_ui updated to accept a mutable App reference so it can use App.list_state.
@@ -58,6 +59,7 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
     frame.render_widget(input, input_area);
 
     // Build items (use packages if available; otherwise, fallback to messages)
+
     let items: Vec<ListItem> = if app.packages.is_empty() {
         app.messages
             .iter()
@@ -69,24 +71,35 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             .iter()
             .enumerate()
             .map(|(_i, p)| {
-                //package name and provider
-                let package: Vec<&str> = p.name.split("/").collect();
+                // package name and provider
+                let package: Vec<&str> = p.name.split('/').collect();
                 let pkg_name = if package.get(1).unwrap_or(&"").len() > 24 {
                     format!("{}...", &package.get(1).unwrap_or(&"")[..22])
                 } else {
                     package.get(1).unwrap_or(&"").to_string()
-                }; //splitted it
-                let provider = package.get(0).unwrap_or(&""); //and then
-                // version formatting
+                };
+                let provider = package.get(0).unwrap_or(&"");
 
+                // version formatting
                 let version = if p.version.len() > 12 {
-                    format!("{}...", &p.version[..8]) // first 5 + "..."
+                    format!("{}...", &p.version[..8])
                 } else {
                     p.version.clone()
                 };
-                //formatted
-                let content =
-                    Span::raw(format!("{: <30} {: <20} {} ", pkg_name, version, provider));
+
+                // ✅ checkbox: [*] if selected_names contains it
+                let checked_symbol = if app.selected_names.contains(&p.name) {
+                    "[*]"
+                } else {
+                    "[ ]"
+                };
+
+                // formatted line
+                let content = Span::raw(format!(
+                    "{} {: <28} {: <20} {}",
+                    checked_symbol, pkg_name, version, provider
+                ));
+
                 ListItem::new(Line::from(content))
             })
             .collect()
@@ -100,39 +113,58 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
 
     // Render it statefully so ratatui can scroll to the selected item automatically.
     frame.render_stateful_widget(list, list_area, &mut app.list_state);
-
     // details pane: show information for selected package
-    let details_text = if app.packages.is_empty() {
-        if app.loading {
-            "Loading...".to_string()
-        } else {
-            "No package selected".to_string()
-        }
+    let mut details_lines: Vec<Line> = Vec::new();
+
+    // If no packages found
+    if app.packages.is_empty() {
+        details_lines.push(Line::from("No package selected"));
     } else {
-        // check if selection changed OR no details loaded yet
+        // Load details only if selection changed
         if app.selected != app.last_selected {
             let pkg_name = &app.packages[app.selected].name;
-            app.details = details_package(pkg_name); // fetch new data
-            app.last_selected = app.selected; // update last seen selection
+            app.details = details_package(pkg_name);
+            app.last_selected = app.selected;
         }
 
         if let Some(ref info) = app.details {
             let mut sorted: Vec<_> = info.iter().collect();
-            sorted.sort_by_key(|(k, _)| *k); // Sort by key
+            sorted.sort_by_key(|(k, _)| *k);
 
-            sorted
-                .iter()
-                .map(|(k, v)| format!("{:<15} {}", k, v))
-                .collect::<Vec<String>>()
-                .join("\n")
+            let key_width = 15; // fixed width for keys
+
+            for (key, value) in sorted {
+                let key_text = format!("{:<key_width$}: ", key, key_width = key_width);
+                let indent = " ".repeat(key_text.len());
+
+                let value_wrapped = wrap(value, 80 - key_text.len());
+
+                if let Some(first) = value_wrapped.get(0) {
+                    details_lines.push(Line::from(vec![
+                        Span::styled(
+                            key_text.clone(),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw(first.to_string()),
+                    ]));
+                }
+
+                // Remaining lines => indent + rest of value
+                for line in value_wrapped.iter().skip(1) {
+                    details_lines.push(Line::from(format!("{}{}", indent, line)));
+                }
+            }
         } else {
-            "Loading details...".to_string()
+            details_lines.push(Line::from("Loading details..."));
         }
-    };
+    }
 
+    // Now render
     frame.render_widget(
-        Paragraph::new(details_text)
-            .wrap(Wrap { trim: true })
+        Paragraph::new(details_lines)
+            .wrap(Wrap { trim: false })
             .block(Block::bordered().title("Details")),
         details_area,
     );
