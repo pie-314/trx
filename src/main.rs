@@ -1,8 +1,9 @@
-mod pacman;
+mod fuzzy;
+mod managers;
 mod ui;
 
 use color_eyre::Result;
-use pacman::Package;
+use managers::Package;
 use ratatui::crossterm::{
     cursor::{Hide, Show},
     execute,

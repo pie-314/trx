@@ -1,4 +1,3 @@
-use crate::execute_external_command;
 use crate::ui::{draw::draw_ui, input::InputMode};
 use color_eyre::Result;
 use ratatui::{
@@ -9,7 +8,7 @@ use ratatui::{
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
-use crate::pacman::{self, Package};
+use crate::managers::{self, Package};
 use std::collections::HashSet;
 
 pub struct App {
@@ -101,11 +100,27 @@ impl App {
         let tx = self.result_tx.clone();
 
         thread::spawn(move || {
-            let pkgs = pacman::search_vec(&query);
-            let _ = tx.send(pkgs);
+            let pac = managers::search_pacman(&query);
+            let aur = managers::search_aur(&query);
+
+            let mut all = pac;
+            all.extend(aur);
+
+            let _ = tx.send(all);
         });
     }
+    fn run_command(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let packages = &self.selected_names;
+        if packages.is_empty() {
+            return Ok(());
+        }
 
+        managers::pacman_installation(terminal, packages)?;
+        Ok(())
+    }
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         loop {
             if let Ok(pkgs) = self.result_rx.try_recv() {
@@ -139,7 +154,7 @@ impl App {
                 if let Event::Key(key) = event::read()? {
                     match self.input_mode {
                         InputMode::Normal => match key.code {
-                            KeyCode::Enter => {
+                            /* KeyCode::Enter => {
                                 if let Some(pkg) = self.packages.get(self.selected) {
                                     let pure_name = pkg.name.split('/').last().unwrap_or(&pkg.name);
                                     execute_external_command(
@@ -148,20 +163,9 @@ impl App {
                                         &["pacman", "-S", pure_name],
                                     )?;
                                 }
-                            }
-
+                            }*/
                             KeyCode::Char('i') => {
-                                if !self.selected_names.is_empty() {
-                                    let args: Vec<String> = std::iter::once("pacman".to_string())
-                                        .chain(std::iter::once("-S".to_string()))
-                                        .chain(self.selected_names.iter().cloned())
-                                        .collect();
-
-                                    let args_ref: Vec<&str> =
-                                        args.iter().map(|s| s.as_str()).collect();
-
-                                    execute_external_command(terminal, "sudo", &args_ref)?;
-                                }
+                                let _ = self.run_command(terminal);
                             }
                             KeyCode::Char(' ') => {
                                 if !self.packages.is_empty() {

@@ -9,7 +9,7 @@ use ratatui::{
 use crate::ui::{app::App, input::InputMode};
 use textwrap::wrap;
 
-use crate::pacman::details_package;
+use crate::managers::details_package;
 /// draw_ui updated to accept a mutable App reference so it can use App.list_state.
 /// The important change: use render_stateful_widget with app.list_state so ratatui keeps the
 /// selected item visible (scrolls) and can apply highlight styling.
@@ -87,14 +87,12 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
                     p.version.clone()
                 };
 
-                // ✅ checkbox: [*] if selected_names contains it
                 let checked_symbol = if app.selected_names.contains(&p.name) {
                     "[*]"
                 } else {
                     "[ ]"
                 };
 
-                // formatted line
                 let content = Span::raw(format!(
                     "{} {: <28} {: <20} {}",
                     checked_symbol, pkg_name, version, provider
