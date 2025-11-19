@@ -109,19 +109,16 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
         .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
         .highlight_symbol("» ");
 
-    // Render it statefully so ratatui can scroll to the selected item automatically.
     frame.render_stateful_widget(list, list_area, &mut app.list_state);
-    // details pane: show information for selected package
     let mut details_lines: Vec<Line> = Vec::new();
 
-    // If no packages found
     if app.packages.is_empty() {
         details_lines.push(Line::from("No package selected"));
     } else {
-        // Load details only if selection changed
         if app.selected != app.last_selected {
             let pkg_name = &app.packages[app.selected].name;
-            app.details = details_package(pkg_name);
+            let provider = &app.packages[app.selected].provider;
+            app.details = details_package(pkg_name, provider);
             app.last_selected = app.selected;
         }
 
