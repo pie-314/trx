@@ -1,7 +1,3 @@
-Here is your **updated README.md** with a clean **Demo** section using the GIF (`trx-preview.gif`).  
-I kept everything else exactly as before.
-
----
 
 # **TRX – Terminal User Interface Package Manager**
 
