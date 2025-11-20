@@ -196,3 +196,6 @@ cargo test
 Licensed under the MIT License.  
 See `LICENSE` for details.
 
+
+We are actively looking for contributors.
+If you're interested in Rust, terminal UIs, package managers, or async design — feel free to pick an issue or open a discussion. Beginners welcome.
