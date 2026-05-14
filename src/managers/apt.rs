@@ -15,7 +15,7 @@ impl PackageManager for AptManager {
             return Vec::new();
         }
         let output = Command::new("apt-cache")
-            .args(&["search", query])
+            .args(["search", query])
             .output()
             .ok();
 
@@ -25,7 +25,7 @@ impl PackageManager for AptManager {
                 .lines()
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.splitn(2, " - ").collect();
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         let name = parts[0].trim().to_string();
                         let desc = parts.get(1).unwrap_or(&"").trim().to_string();
                         let score = crate::fuzzy::fuzzy_match(query, &name);
@@ -49,7 +49,7 @@ impl PackageManager for AptManager {
 
     fn get_installed(&self) -> HashSet<String> {
         let output = Command::new("dpkg-query")
-            .args(&["-W", "-f=${Package}\n"])
+            .args(["-W", "-f=${Package}\n"])
             .output()
             .ok();
 
@@ -63,7 +63,7 @@ impl PackageManager for AptManager {
 
     fn get_installed_details(&self) -> Vec<Package> {
         let output = Command::new("dpkg-query")
-            .args(&["-W", "-f=${Package}\t${Version}\t${Description}\n"])
+            .args(["-W", "-f=${Package}\t${Version}\t${Description}\n"])
             .output()
             .ok();
 
@@ -93,7 +93,7 @@ impl PackageManager for AptManager {
 
     fn get_updates(&self) -> Vec<Package> {
         let output = Command::new("apt")
-            .args(&["list", "--upgradable"])
+            .args(["list", "--upgradable"])
             .output()
             .ok();
 
@@ -104,7 +104,7 @@ impl PackageManager for AptManager {
                 .skip(1)
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.split('/').collect();
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         Some(Package {
                             provider: "apt/update".to_string(),
                             name: parts[0].to_string(),
@@ -132,7 +132,7 @@ impl PackageManager for AptManager {
         }
 
         let output = Command::new("apt-cache")
-            .args(&["show", pkg])
+            .args(["show", pkg])
             .output()
             .ok()?;
 

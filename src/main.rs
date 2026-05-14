@@ -50,9 +50,8 @@ fn main() -> Result<()> {
 
     color_eyre::install()?;
     let mut terminal = init();
-    execute!(std::io::stdout(), DisableMouseCapture)?;
-    let (result_tx, result_rx): (mpsc::Sender<(String, Vec<Package>)>, mpsc::Receiver<(String, Vec<Package>)>) =
-        mpsc::channel();
+    execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture)?;
+    let (result_tx, result_rx) = mpsc::channel::<(String, Vec<Package>)>();
     let app_result = App::new(result_tx.clone(), result_rx).run(&mut terminal);
     execute!(std::io::stdout(), DisableMouseCapture)?;
     restore();
@@ -71,7 +70,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Ok(None) => Ok(()),
-        Err(e) => Err(e.into()),
+        Err(e) => Err(e),
     }
 }
 

@@ -194,7 +194,7 @@ pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> 
             let version = parts[1].to_string();
             let description = second_line.trim().to_string();
 
-            let package_name = package.split('/').last().unwrap_or(&package).to_string();
+            let package_name = package.split('/').next_back().unwrap_or(&package).to_string();
             let score = crate::fuzzy::fuzzy_match(query, &package_name);
 
             res.push(Package {

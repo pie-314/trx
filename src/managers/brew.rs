@@ -14,7 +14,7 @@ impl PackageManager for BrewManager {
         if query.is_empty() {
             return Vec::new();
         }
-        let output = Command::new("brew").args(&["search", query]).output().ok();
+        let output = Command::new("brew").args(["search", query]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -40,7 +40,7 @@ impl PackageManager for BrewManager {
 
     fn get_installed(&self) -> HashSet<String> {
         let output = Command::new("brew")
-            .args(&["list", "--formula"])
+            .args(["list", "--formula"])
             .output()
             .ok();
 
@@ -54,7 +54,7 @@ impl PackageManager for BrewManager {
 
     fn get_installed_details(&self) -> Vec<Package> {
         let output = Command::new("brew")
-            .args(&["list", "--formula"])
+            .args(["list", "--formula"])
             .output()
             .ok();
 
@@ -76,7 +76,7 @@ impl PackageManager for BrewManager {
     }
 
     fn get_updates(&self) -> Vec<Package> {
-        let output = Command::new("brew").args(&["outdated"]).output().ok();
+        let output = Command::new("brew").args(["outdated"]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -104,7 +104,7 @@ impl PackageManager for BrewManager {
             }
         }
 
-        let output = Command::new("brew").args(&["info", pkg]).output().ok()?;
+        let output = Command::new("brew").args(["info", pkg]).output().ok()?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut out = HashMap::new();
@@ -115,7 +115,7 @@ impl PackageManager for BrewManager {
         }
 
         // Line 1: name: version (status)
-        if let Some(first_line) = lines.get(0) {
+        if let Some(first_line) = lines.first() {
             let parts: Vec<&str> = first_line.splitn(2, ':').collect();
             if parts.len() == 2 {
                 out.insert("Name".into(), parts[0].trim().into());

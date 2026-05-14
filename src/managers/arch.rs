@@ -86,7 +86,7 @@ impl PackageManager for ArchManager {
             }
         }
 
-        let pure_name = pkg.split('/').last().unwrap_or(pkg);
+        let pure_name = pkg.split('/').next_back().unwrap_or(pkg);
         let provide = provider.split('/').next().unwrap_or(provider);
         
         let info = match provide {

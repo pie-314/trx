@@ -291,6 +291,7 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
 
     if app.config.theme_name == "Custom" {
         settings_lines.push(Line::from(""));
+        // This is a header for custom colors
         settings_lines.push(Line::from(Span::styled("--- Custom Colors ---", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD))));
         if let Some(ref ct) = app.config.custom_theme {
             draw_setting!(current_idx, "Border Color", &ct.border_color, false);
@@ -299,16 +300,40 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
             draw_setting!(current_idx + 3, "Error Color", &ct.error_color, false);
             draw_setting!(current_idx + 4, "Text Primary", &ct.text_primary, false);
             draw_setting!(current_idx + 5, "Text Secondary", &ct.text_secondary, false);
+            current_idx += 6;
         }
     }
 
+    settings_lines.push(Line::from(""));
+    // This is the maintenance section
+    settings_lines.push(Line::from(Span::styled("--- Maintenance ---", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD))));
+    
+    let spinners = get_spinner(&app.config.settings.spinner_type);
+    let update_status = if app.manual_update_checking {
+        format!("Checking {}...", spinners[(app.spinner_tick as usize / 5) % spinners.len()])
+    } else {
+        match &app.manual_update_result {
+            Some(Some((ver, _))) => format!("New version available: v{}", ver),
+            Some(None) => "Up to date".to_string(),
+            None => "Click to check".to_string(),
+        }
+    };
+    
+    // Manual Update Check
+    draw_setting!(current_idx, "Check for Updates", &update_status, false);
+    // GitHub Repo link
+    draw_setting!(current_idx + 1, "GitHub Repository", "https://github.com/pie-314/trx", false);
+
+    // Create a paragraph for the settings
     let paragraph = Paragraph::new(settings_lines)
         .block(Block::bordered()
+            // Title for the settings block
             .title("Settings (Enter/Space to Toggle or Edit, Arrows for Cycles)")
             .border_type(border_type)
             .border_style(Style::default().fg(border_color)))
         .wrap(Wrap { trim: false });
 
+    // Render the widget to the frame
     frame.render_widget(paragraph, area);
 }
 

@@ -96,10 +96,10 @@ impl Config {
             let config_path = config_dir.join("config.toml");
 
             if config_path.exists() {
-                if let Ok(content) = fs::read_to_string(config_path) {
-                    if let Ok(config) = toml::from_str(&content) {
-                        return config;
-                    }
+                if let Ok(config) = fs::read_to_string(config_path).and_then(|content| {
+                    toml::from_str::<Config>(&content).map_err(std::io::Error::other)
+                }) {
+                    return config;
                 }
             } else {
                 // Create default config
@@ -151,10 +151,8 @@ impl Config {
     }
 
     pub fn current_theme(&self) -> Theme {
-        if self.theme_name == "Custom" {
-            if let Some(ref custom) = self.custom_theme {
-                return custom.clone();
-            }
+        if self.theme_name == "Custom" && let Some(ref custom) = self.custom_theme {
+            return custom.clone();
         }
         
         match self.theme_name.as_str() {

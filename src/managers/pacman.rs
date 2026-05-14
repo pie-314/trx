@@ -82,7 +82,7 @@ pub fn pacman_install(
 
     let pure: Vec<String> = selected
         .iter()
-        .map(|n| n.split('/').last().unwrap_or(n).to_string())
+        .map(|n| n.split('/').next_back().unwrap_or(n).to_string())
         .collect();
 
     let mut args: Vec<String> = vec!["-S".into(), "--needed".into()];
@@ -113,7 +113,7 @@ pub fn pacman_remove(
 
     let pure: Vec<String> = selected
         .iter()
-        .map(|n| n.split('/').last().unwrap_or(n).to_string())
+        .map(|n| n.split('/').next_back().unwrap_or(n).to_string())
         .collect();
 
     let mut args: Vec<String> = vec!["-Rs".into()];
