@@ -384,25 +384,37 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
 
     let items: Vec<ListItem> = if app.packages.is_empty() {
         if app.loading {
-            vec![ListItem::new("  Searching...")]
+            vec![ListItem::new(Line::from(Span::styled("  Searching...", Style::default().fg(secondary_color))))]
+        } else if !app.last_search_query.is_empty() || !matches!(app.current_tab, crate::ui::app::Tab::Search) {
+            vec![ListItem::new(Line::from(Span::styled(
+                "  No results found.",
+                Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC),
+            )))]
         } else {
-            vec![ListItem::new("  No packages found.")]
+            vec![ListItem::new(Line::from(Span::styled(
+                "  Start typing to search...",
+                Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC),
+            )))]
         }
     } else {
         app.packages.iter().enumerate().map(|(i, pkg)| {
             let is_selected = i == app.selected;
             let is_checked = app.checked[i];
             let is_installed = app.installed_packages.contains(&pkg.name);
-            
+
             let checkbox = if is_checked { "[x] " } else { "[ ] " };
             let status = if is_installed { " (installed)" } else { "" };
-            
-            let name_style = if is_selected {
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
-            } else if is_installed {
+
+            let name_style = if is_installed {
                 Style::default().fg(success_color)
             } else {
                 Style::default().fg(primary_color)
+            };
+            // Underline the selected item for extra visibility
+            let name_style = if is_selected {
+                name_style.add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+            } else {
+                name_style
             };
 
             let line = Line::from(vec![
@@ -411,7 +423,7 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
                 Span::styled(format!(" v{}", pkg.version), Style::default().fg(secondary_color)),
                 Span::styled(status, Style::default().fg(success_color).add_modifier(Modifier::ITALIC)),
             ]);
-            
+
             ListItem::new(line)
         }).collect()
     };
@@ -433,7 +445,12 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
             .title(list_title)
             .border_type(border_type)
             .border_style(Style::default().fg(border_color)))
-        .highlight_style(Style::default().bg(app.config.get_color("blue")).fg(Color::White))
+        .highlight_style(
+            Style::default()
+                .bg(app.config.get_color(&theme.highlight_color))
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol(">> ");
 
     frame.render_stateful_widget(list, area, &mut app.list_state);
@@ -482,12 +499,23 @@ fn draw_details(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config:
 }
 
 fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme) {
-    let area = centered_rect(60, 50, frame.area());
+    let area = centered_rect(60, 70, frame.area());
     frame.render_widget(Clear, area);
     let keys = &app.config.keys;
     let highlight_color = app.config.get_color(&theme.highlight_color);
+    let secondary_color = app.config.get_color(&theme.text_secondary);
     let border_type = get_border_type(&app.config.settings.border_style);
     let version = env!("CARGO_PKG_VERSION");
+
+    let key_style = Style::default().fg(highlight_color).add_modifier(Modifier::BOLD);
+    let desc_style = Style::default();
+    let section_style = Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC);
+
+    let toggle_display = if keys.toggle_select == " " {
+        "Space".to_string()
+    } else {
+        keys.toggle_select.clone()
+    };
 
     let help_text = vec![
         Line::from(vec![
@@ -495,19 +523,36 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
             Span::raw(format!("v{}", version)),
         ]),
         Line::from(""),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.search_edit), Style::default().fg(highlight_color)), Span::raw("Enter search mode")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.toggle_select), Style::default().fg(highlight_color)), Span::raw("Toggle package selection")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.install), Style::default().fg(highlight_color)), Span::raw("Install selected packages")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.remove), Style::default().fg(highlight_color)), Span::raw("Remove selected packages")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.tab_next), Style::default().fg(highlight_color)), Span::raw("Next tab")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.tab_prev), Style::default().fg(highlight_color)), Span::raw("Previous tab")]),
-        Line::from(vec![Span::styled(format!("{:<15}", keys.quit), Style::default().fg(highlight_color)), Span::raw("Quit")]),
+        Line::from(Span::styled("Navigation", section_style)),
+        Line::from(vec![Span::styled(format!("{:<18}", format!("{}/k  {}/j", "↑", "↓")), key_style), Span::styled("Move up / down", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", "Home / End"),         key_style), Span::styled("Jump to first / last", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", format!("{}/{}", keys.tab_next, keys.tab_prev)), key_style), Span::styled("Next / previous tab", desc_style)]),
+        Line::from(""),
+        Line::from(Span::styled("Search", section_style)),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.search_edit),    key_style), Span::styled("Enter search mode", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", "Esc"),                key_style), Span::styled("Exit search mode", desc_style)]),
+        Line::from(""),
+        Line::from(Span::styled("Packages", section_style)),
+        Line::from(vec![Span::styled(format!("{:<18}", &toggle_display),      key_style), Span::styled("Toggle package selection", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.install),        key_style), Span::styled("Install selected packages", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.remove),         key_style), Span::styled("Remove selected packages", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.system_upgrade), key_style), Span::styled("Full system upgrade", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.refresh_db),     key_style), Span::styled("Refresh package databases", desc_style)]),
+        Line::from(""),
+        Line::from(Span::styled("Details Panel", section_style)),
+        Line::from(vec![Span::styled(format!("{:<18}", "↑/↓ (right side)"),   key_style), Span::styled("Scroll details", desc_style)]),
+        Line::from(""),
+        Line::from(Span::styled("Other", section_style)),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.help),           key_style), Span::styled("Toggle this help overlay", desc_style)]),
+        Line::from(vec![Span::styled(format!("{:<18}", &keys.quit),           key_style), Span::styled("Quit", desc_style)]),
+        Line::from(""),
+        Line::from(Span::styled("Mouse: click tabs, scroll list/details, click checkboxes", section_style)),
     ];
 
     frame.render_widget(
         Paragraph::new(help_text)
             .block(Block::bordered()
-                .title("Help")
+                .title(" Help — Keybindings ")
                 .border_type(border_type)
                 .border_style(Style::default().fg(app.config.get_color(&theme.border_color))))
             .wrap(Wrap { trim: true }),

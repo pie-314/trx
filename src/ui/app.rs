@@ -63,7 +63,7 @@ pub struct App {
     update_rx: Receiver<Option<(String, String)>>,
     last_input_time: Instant,
     pending_search: bool,
-    last_search_query: String,
+    pub last_search_query: String,
     pub popup_timer: Option<Instant>,
 }
 
