@@ -26,6 +26,7 @@ pub trait PackageManager: Send + Sync {
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>>;
     fn install(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
     fn remove(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
+    fn update_packages(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
     fn system_upgrade(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>>;
     fn refresh_databases(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>>;
 }
@@ -101,6 +102,13 @@ impl PackageManager for CombinedManager {
     fn remove(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
             m.remove(terminal, pkgs)?;
+        }
+        Ok(())
+    }
+
+    fn update_packages(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+        for m in &self.managers {
+            m.update_packages(terminal, pkgs)?;
         }
         Ok(())
     }

@@ -205,6 +205,21 @@ impl PackageManager for BrewManager {
         Ok(())
     }
 
+    fn update_packages(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if pkgs.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec!["upgrade"];
+        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        args.extend(pkg_refs);
+        crate::execute_external_command(terminal, "brew", &args)?;
+        Ok(())
+    }
+
     fn system_upgrade(
         &self,
         terminal: &mut DefaultTerminal,

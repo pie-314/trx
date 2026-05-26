@@ -173,6 +173,21 @@ impl PackageManager for AptManager {
         Ok(())
     }
 
+    fn update_packages(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if pkgs.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec!["apt", "install", "--only-upgrade", "-y"];
+        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        args.extend(pkg_refs);
+        crate::execute_external_command(terminal, "sudo", &args)?;
+        Ok(())
+    }
+
     fn system_upgrade(
         &self,
         terminal: &mut DefaultTerminal,

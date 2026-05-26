@@ -41,9 +41,11 @@ fn main() -> Result<()> {
                 println!("  {:<16} Toggle package selection or settings", if keys.toggle_select == " " { "Space".to_string() } else { keys.toggle_select.clone() });
                 println!("  {:<16} Install selected packages", keys.install);
                 println!("  {:<16} Remove selected packages", keys.remove);
+                println!("  {:<16} Update selected packages", keys.update);
                 println!("  {:<16} Full system upgrade", keys.system_upgrade);
                 println!("  {:<16} Refresh package databases", keys.refresh_db);
                 println!("  {:<16} Toggle help overlay", keys.help);
+                println!("  {:<16} Check for trx binary updates", keys.check_update);
                 println!("\nMouse Support:");
                 println!("  Full navigation, tab switching, and scrolling are supported.");
                 return Ok(());

@@ -60,6 +60,7 @@ pub struct App {
     result_rx: Receiver<(String, Vec<Package>)>,
     details_tx: Sender<DetailsState>,
     details_rx: Receiver<DetailsState>,
+    update_tx: Sender<Option<(String, String)>>,
     update_rx: Receiver<Option<(String, String)>>,
     last_input_time: Instant,
     pending_search: bool,
@@ -79,9 +80,10 @@ impl App {
         // Spawn parallel update check if enabled
         if config.settings.auto_update_check {
             let skipped = config.settings.skipped_update_version.clone();
+            let tx = update_tx.clone();
             thread::spawn(move || {
                 let res = crate::updater::check_for_updates(skipped.as_deref());
-                let _ = update_tx.send(res);
+                let _ = tx.send(res);
             });
         }
 
@@ -124,6 +126,7 @@ impl App {
             result_rx,
             details_tx,
             details_rx,
+            update_tx,
             update_rx,
             last_input_time: Instant::now(),
             pending_search: false,
@@ -246,6 +249,33 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn run_update_command(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Update selected packages; if none are selected, update the highlighted package.
+        let mut to_update = self.selected_names.clone();
+        if to_update.is_empty() {
+            if let Some(pkg) = self.packages.get(self.selected) {
+                to_update.insert(pkg.name.clone());
+            }
+        }
+        if !to_update.is_empty() {
+            self.manager.update_packages(terminal, &to_update)?;
+        }
+        Ok(())
+    }
+
+    fn trigger_manual_update_check(&mut self) {
+        self.set_popup("Checking for updates...".to_string(), ratatui::style::Color::Cyan);
+        let tx = self.update_tx.clone();
+        thread::spawn(move || {
+            // Pass None to ignore the skipped-version filter for manual checks.
+            let res = crate::updater::check_for_updates(None);
+            let _ = tx.send(res);
+        });
     }
 
     fn switch_tab(&mut self) {
@@ -590,6 +620,16 @@ impl App {
                                     self.installed_packages = self.manager.get_installed();
                                     if let Tab::Installed = self.current_tab {
                                         self.reset_tab_state();
+                                    }
+                                } else if is_key(key.code, &keys.update) {
+                                    let _ = self.run_update_command(terminal);
+                                    self.installed_packages = self.manager.get_installed();
+                                    if let Tab::Updates = self.current_tab {
+                                        self.reset_tab_state();
+                                    }
+                                } else if is_key(key.code, &keys.check_update) {
+                                    if self.update_prompt.is_none() {
+                                        self.trigger_manual_update_check();
                                     }
                                 } else if is_key(key.code, &keys.system_upgrade) {
                                     let _ = self.manager.system_upgrade(terminal);

@@ -132,6 +132,27 @@ impl PackageManager for ArchManager {
         pacman::pacman_remove(terminal, pkgs)
     }
 
+    fn update_packages(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+        let mut pacman_pkgs = HashSet::new();
+        let mut aur_pkgs = HashSet::new();
+
+        for name in pkgs {
+            if name.starts_with("aur/") {
+                aur_pkgs.insert(name.clone());
+            } else {
+                pacman_pkgs.insert(name.clone());
+            }
+        }
+
+        if !pacman_pkgs.is_empty() {
+            pacman::pacman_install(terminal, &pacman_pkgs)?;
+        }
+        if !aur_pkgs.is_empty() {
+            yay::aur_install(terminal, &aur_pkgs, &self.aur_helper)?;
+        }
+        Ok(())
+    }
+
     fn system_upgrade(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>> {
         let config = crate::config::Config::load();
         let enabled = &config.settings.enabled_managers;

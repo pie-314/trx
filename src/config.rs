@@ -24,6 +24,7 @@ pub struct Keys {
     pub quit: String,
     pub install: String,
     pub remove: String,
+    pub update: String,
     pub search_edit: String,
     pub toggle_select: String,
     pub tab_next: String,
@@ -31,6 +32,7 @@ pub struct Keys {
     pub system_upgrade: String,
     pub refresh_db: String,
     pub help: String,
+    pub check_update: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -72,6 +74,7 @@ impl Default for Config {
                 quit: "q".to_string(),
                 install: "i".to_string(),
                 remove: "x".to_string(),
+                update: "u".to_string(),
                 search_edit: "e".to_string(),
                 toggle_select: " ".to_string(),
                 tab_next: "Tab".to_string(),
@@ -79,6 +82,7 @@ impl Default for Config {
                 system_upgrade: "U".to_string(),
                 refresh_db: "R".to_string(),
                 help: "?".to_string(),
+                check_update: "C".to_string(),
             },
             theme: Theme {
                 border_color: "blue".to_string(),
