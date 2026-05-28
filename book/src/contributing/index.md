@@ -31,15 +31,16 @@ cargo test         # run the test suite
 
 ## Pull Request Workflow
 
-1. Fork the repository and create a feature branch:
+1. Fork the repository and create a feature branch (target the `dev` branch):
    ```bash
-   git checkout -b feat/dnf-backend
+   git checkout dev
+   git checkout -b feat/my-improvement
    ```
 2. Make your changes.
 3. Run `cargo fmt` and `cargo clippy` (zero warnings preferred).
 4. Run `cargo test`.
 5. Commit using conventional commit messages (see [Coding Guidelines](./coding-guidelines.md)).
-6. Open a PR describing what changed, why, and how it was tested.
+6. Open a PR **against the `dev` branch** describing what changed, why, and how it was tested.
 
 ---
 

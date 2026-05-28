@@ -134,15 +134,16 @@ Labels you will commonly see:
 ### **Pull Requests**
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (target the `dev` branch)
 
    ```bash
+   git checkout dev
    git checkout -b feature/my-improvement
    ```
 3. Make your changes
 4. Run tests + lint
 5. Commit and push
-6. Open a PR describing:
+6. Open a PR **against the `dev` branch** describing:
 
    * what changed
    * why
