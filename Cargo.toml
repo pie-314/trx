@@ -1,6 +1,6 @@
 [package]
 name = "trx-cli"
-version = "0.1.10"
+version = "0.1.12"
 edition = "2024"
 description = "A Modern Cross-Platform Package Manager TUI"
 license = "MIT"
