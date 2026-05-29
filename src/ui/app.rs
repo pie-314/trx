@@ -32,6 +32,16 @@ pub enum DetailsState {
     Error(String),
 }
 
+// --- Comparison feature ---
+#[derive(Debug, Clone)]
+pub struct ComparisonState {
+    pub pkg_a: Package,
+    pub pkg_b: Package,
+    pub details_a: DetailsState,
+    pub details_b: DetailsState,
+}
+// --- End comparison feature ---
+
 pub struct App {
     pub input: String,
     pub character_index: usize,
@@ -69,6 +79,13 @@ pub struct App {
     pending_search: bool,
     last_search_query: String,
     pub popup_timer: Option<Instant>,
+
+    // --- Comparison feature fields ---
+    pub compare_selection: Option<Package>,
+    pub comparison_state: Option<ComparisonState>,
+    comparison_tx: std::sync::mpsc::Sender<(DetailsState, DetailsState)>,
+    comparison_rx: std::sync::mpsc::Receiver<(DetailsState, DetailsState)>,
+    // --- End comparison feature fields ---
 }
 
 impl App {
@@ -78,8 +95,9 @@ impl App {
 
         let (details_tx, details_rx) = std::sync::mpsc::channel();
         let (update_tx, update_rx) = std::sync::mpsc::channel();
+        let (comparison_tx, comparison_rx) = std::sync::mpsc::channel(); // --- Comparison feature ---
         let config = crate::config::Config::load();
-        
+
         // Spawn parallel update check if enabled; keep a clone of the sender
         // so the user can manually re-trigger a check at any time.
         if config.settings.auto_update_check {
@@ -136,6 +154,12 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
+            // --- Comparison feature initializations ---
+            compare_selection: None,
+            comparison_state: None,
+            comparison_tx,
+            comparison_rx,
+            // --- End comparison feature initializations ---
         };
 
         if app.current_tab != Tab::Search {
@@ -291,15 +315,12 @@ impl App {
         &self,
         terminal: &mut DefaultTerminal,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Prefer explicitly checked packages; fall back to the highlighted item.
         let mut to_update: HashSet<String> = self.selected_names.clone();
         if to_update.is_empty() {
             if let Some(pkg) = self.packages.get(self.selected) {
                 to_update.insert(pkg.name.clone());
             }
         }
-        // Only update packages that are actually installed; avoids invoking
-        // backend-specific upgrade commands on packages the system doesn't own.
         to_update.retain(|name| self.installed_packages.contains(name));
         if !to_update.is_empty() {
             self.manager.update_packages(terminal, &to_update)?;
@@ -407,10 +428,7 @@ impl App {
             self.set_popup(format!("Enabled {}", name), Color::Green);
         }
         let _ = self.config.save();
-        // Re-initialize manager
         self.manager = Arc::new(managers::get_system_manager(&self.config));
-        
-        // Refresh current list if applicable
         if self.current_tab != Tab::Settings {
             self.reset_tab_state();
         }
@@ -507,9 +525,6 @@ impl App {
             // check for update prompt response
             if self.update_prompt.is_none() {
                 if let Ok(Some(update)) = self.update_rx.try_recv() {
-                    // Only clear a stored skip if the detected version is *different*
-                    // from what the user skipped. Clearing unconditionally would erase
-                    // the user's explicit choice when they manually recheck and dismiss.
                     let detected_version = &update.0;
                     let skip_is_stale = self.config.settings.skipped_update_version
                         .as_deref()
@@ -533,7 +548,6 @@ impl App {
 
                 if is_current_tab_result {
                     self.packages = pkgs;
-
                     self.checked = self
                         .packages
                         .iter()
@@ -541,7 +555,7 @@ impl App {
                         .collect();
 
                     self.selected = 0;
-                    self.last_selected = usize::MAX; // Reset to trigger details for first item
+                    self.last_selected = usize::MAX;
                     self.loading = false;
 
                     if !self.packages.is_empty() {
@@ -565,6 +579,15 @@ impl App {
                 self.details_state = state;
             }
 
+            // --- Comparison feature: poll comparison results ---
+            if let Ok((det_a, det_b)) = self.comparison_rx.try_recv() {
+                if let Some(ref mut comp) = self.comparison_state {
+                    comp.details_a = det_a;
+                    comp.details_b = det_b;
+                }
+            }
+            // --- End comparison feature poll ---
+
             if let Some(timer) = self.popup_timer {
                 if timer.elapsed() > Duration::from_secs(3) {
                     self.popup_message = None;
@@ -578,6 +601,15 @@ impl App {
                 let ev = event::read()?;
                 match ev {
                     Event::Key(key) => {
+                        // --- Comparison feature: block all keys when comparison is open except Esc ---
+                        if self.comparison_state.is_some() {
+                            if key.kind == KeyEventKind::Press && key.code == KeyCode::Esc {
+                                self.comparison_state = None;
+                            }
+                            continue;
+                        }
+                        // --- End comparison feature block ---
+
                         if self.update_prompt.is_some() {
                             if key.kind == KeyEventKind::Press {
                                 match key.code {
@@ -609,8 +641,7 @@ impl App {
                         match self.input_mode {
                             InputMode::Normal if key.kind == KeyEventKind::Press => {
                                 let keys = &self.config.keys;
-                                
-                                // Check custom keybindings
+
                                 let is_key = |code: KeyCode, target: &str| -> bool {
                                     match code {
                                         KeyCode::Char(c) => c.to_string() == target,
@@ -658,8 +689,6 @@ impl App {
                                 } else if is_key(key.code, &keys.update) {
                                     let _ = self.run_update_command(terminal);
                                     self.installed_packages = self.manager.get_installed();
-                                    // Reset both Updates and Installed tabs so their lists
-                                    // reflect the post-update state immediately.
                                     match self.current_tab {
                                         Tab::Updates | Tab::Installed => self.reset_tab_state(),
                                         _ => {}
@@ -690,6 +719,47 @@ impl App {
                                 } else if is_key(key.code, &keys.search_edit) {
                                     self.show_help = false;
                                     self.input_mode = InputMode::Editing;
+                                // --- Comparison feature key handling ---
+                                } else if key.code == KeyCode::Char('c') {
+                                    if self.current_tab != Tab::Settings && !self.packages.is_empty() {
+                                        if let Some(selected_pkg) = self.packages.get(self.selected) {
+                                            match &self.compare_selection {
+                                                None => {
+                                                    self.compare_selection = Some(selected_pkg.clone());
+                                                    self.set_popup(
+                                                        format!("Marked {}. Press 'c' on another package to compare.", selected_pkg.name),
+                                                        Color::Cyan,
+                                                    );
+                                                }
+                                                Some(first) => {
+                                                    if first.name == selected_pkg.name {
+                                                        self.compare_selection = None;
+                                                        self.set_popup("Comparison cancelled.".to_string(), Color::Yellow);
+                                                    } else {
+                                                        let pkg_a = first.clone();
+                                                        let pkg_b = selected_pkg.clone();
+                                                        let tx = self.comparison_tx.clone();
+                                                        let manager = Arc::clone(&self.manager);
+                                                        self.compare_selection = None;
+                                                        self.comparison_state = Some(ComparisonState {
+                                                            pkg_a: pkg_a.clone(),
+                                                            pkg_b: pkg_b.clone(),
+                                                            details_a: DetailsState::Loading,
+                                                            details_b: DetailsState::Loading,
+                                                        });
+                                                        thread::spawn(move || {
+                                                            let a = manager.get_details(&pkg_a.name, &pkg_a.provider);
+                                                            let b = manager.get_details(&pkg_b.name, &pkg_b.provider);
+                                                            let res_a = a.map(DetailsState::Success).unwrap_or_else(|| DetailsState::Error("Failed to fetch details".into()));
+                                                            let res_b = b.map(DetailsState::Success).unwrap_or_else(|| DetailsState::Error("Failed to fetch details".into()));
+                                                            let _ = tx.send((res_a, res_b));
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                // --- End comparison feature key handling ---
                                 } else {
                                     match key.code {
                                         KeyCode::Left | KeyCode::Char('h') => {
@@ -837,7 +907,6 @@ impl App {
                 }
             }
             event::MouseEventKind::Down(event::MouseButton::Left) => {
-                // Tab switching
                 if mouse_event.row >= 1 && mouse_event.row <= 3 {
                     let col = mouse_event.column.saturating_sub(1);
                     let tab_titles = ["Search", "Installed", "Updates", "Settings"];
@@ -858,14 +927,12 @@ impl App {
                             }
                             return Ok(());
                         }
-                        current_x += width + 3; // 3 for " | " separator in Ratatui Tabs
+                        current_x += width + 3;
                     }
                 }
-                // Settings interaction
                 else if self.current_tab == Tab::Settings {
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
-                    
                     let idx = if r >= 7 && r <= 12 {
                         Some(r - 7)
                     } else if r >= 14 && r < 14 + mgr_count {
@@ -889,13 +956,10 @@ impl App {
                         }
                     }
                 }
-                // List/Details interaction
                 else {
                     let is_wide = term_width >= 100;
                     let split_col = if is_wide { term_width / 2 } else { (term_width * 6) / 10 };
-                    
                     if mouse_event.column < split_col {
-                        // Package List
                         let offset = if self.current_tab == Tab::Search { 7 } else { 4 };
                         if mouse_event.row >= offset {
                             let list_idx = (mouse_event.row - offset) as usize;
@@ -905,7 +969,6 @@ impl App {
                                 self.selected = real_idx;
                                 self.list_state.select(Some(self.selected));
                                 self.trigger_details_fetch();
-                                
                                 if mouse_event.column < 5 {
                                     let name = self.packages[real_idx].name.clone();
                                     let is_checked = !self.checked[real_idx];
@@ -914,8 +977,6 @@ impl App {
                                 }
                             }
                         }
-                        
-                        // Scrollbar click for list
                         if mouse_event.column >= split_col - 2 && mouse_event.column <= split_col - 1 {
                              if mouse_event.row < (term_width / 2) {
                                  if self.selected > 0 { self.selected -= 1; }
@@ -926,7 +987,6 @@ impl App {
                              self.trigger_details_fetch();
                         }
                     } else {
-                        // Details Area Scroll
                         if mouse_event.column >= term_width - 2 {
                             if mouse_event.row < (term_width / 4) {
                                 self.details_scroll = self.details_scroll.saturating_sub(1);
@@ -945,12 +1005,12 @@ impl App {
     fn handle_settings_toggle(&mut self) {
         let mgr_count = self.available_managers.len();
         match self.settings_index {
-            1 => { // Auto Update Check
+            1 => {
                 self.config.settings.auto_update_check = !self.config.settings.auto_update_check;
                 let _ = self.config.save();
                 self.set_popup(format!("Auto Update Check: {}", self.config.settings.auto_update_check), Color::Cyan);
             }
-            2 => { // Auto Cleanup
+            2 => {
                 self.config.settings.auto_cleanup = !self.config.settings.auto_cleanup;
                 let _ = self.config.save();
                 self.set_popup(format!("Auto Cleanup: {}", self.config.settings.auto_cleanup), Color::Cyan);
@@ -959,17 +1019,10 @@ impl App {
                 let mgr_name = self.available_managers[i - 6].clone();
                 self.toggle_manager(&mgr_name);
             }
-            i if i == 6 + mgr_count => { 
-                self.next_theme(); 
-            }
-            i if i == 6 + mgr_count + 1 => {
-                self.next_border_style();
-            }
-            i if i == 6 + mgr_count + 2 => {
-                self.next_spinner_type();
-            }
+            i if i == 6 + mgr_count => { self.next_theme(); }
+            i if i == 6 + mgr_count + 1 => { self.next_border_style(); }
+            i if i == 6 + mgr_count + 2 => { self.next_spinner_type(); }
             _ => {
-                // If it's a string/color field, enter editing mode
                 self.input = match self.settings_index {
                     0 => self.config.aur_helper.clone(),
                     3 => self.config.settings.search_debounce_ms.to_string(),
@@ -1032,4 +1085,3 @@ impl App {
         }
     }
 }
-

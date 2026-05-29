@@ -6,7 +6,9 @@ use ratatui::{
     widgets::{Block, List, ListItem, Paragraph, Wrap, Clear, BorderType},
 };
 
-use crate::ui::{app::App, input::InputMode};
+use crate::ui::app::{App, DetailsState};
+use crate::ui::input::InputMode;
+use crate::managers::Package;                         // <-- needed by draw_comparison_view
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::vertical([
@@ -99,6 +101,12 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
     if app.update_prompt.is_some() {
         draw_update_prompt(frame, app, &theme_colors);
     }
+
+    // --- Comparison view ---
+    if app.comparison_state.is_some() {
+        draw_comparison_view(frame, app, &theme_colors);
+    }
+    // --- End comparison view ---
 
     if let Some((msg, color)) = &app.popup_message {
         draw_popup(frame, msg, *color, &theme_colors, &app.config.settings.border_style);
@@ -208,6 +216,89 @@ fn draw_popup(frame: &mut Frame, msg: &str, color: Color, _theme: &crate::config
         .alignment(ratatui::layout::Alignment::Center);
     
     frame.render_widget(paragraph, area);
+}
+
+fn draw_comparison_view(frame: &mut Frame, app: &App, theme: &crate::config::Theme) {
+    if let Some(comp) = &app.comparison_state {
+        let area = centered_rect(80, 70, frame.area());
+        frame.render_widget(Clear, area);
+        let border_type = get_border_type(&app.config.settings.border_style);
+        let border_color = app.config.get_color(&theme.border_color);
+        let highlight_color = app.config.get_color(&theme.highlight_color);
+        let primary_color = app.config.get_color(&theme.text_primary);
+        let error_color = app.config.get_color(&theme.error_color);
+        let spinners = get_spinner(&app.config.settings.spinner_type);
+        let spinner = spinners[(app.spinner_tick as usize / 5) % spinners.len()];
+
+        let [pkg_a_area, pkg_b_area] = Layout::horizontal([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .areas(area);
+
+        let render_pkg_panel = |frame: &mut Frame, area: Rect, pkg: &Package, details: &DetailsState| {
+            let mut lines = vec![
+                Line::from(vec![
+                    Span::styled("Name: ", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(&pkg.name),
+                ]),
+                Line::from(vec![
+                    Span::styled("Version: ", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(&pkg.version),
+                ]),
+                Line::from(vec![
+                    Span::styled("Provider: ", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(&pkg.provider),
+                ]),
+                Line::from(vec![
+                    Span::styled("Description: ", Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(&pkg.description),
+                ]),
+                Line::from(""),
+            ];
+
+            match details {
+                DetailsState::Loading => {
+                    lines.push(Line::from(format!("Loading details {}...", spinner)));
+                }
+                DetailsState::Error(e) => {
+                    lines.push(Line::from(Span::styled(e, Style::default().fg(error_color))));
+                }
+                DetailsState::Success(map) => {
+                    for (key, value) in map {
+                        lines.push(Line::from(vec![
+                            Span::styled(format!("{}: ", key), Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+                            Span::raw(value),
+                        ]));
+                    }
+                }
+                DetailsState::Empty => {}
+            }
+
+            let block = Block::bordered()
+                .title(pkg.name.clone())
+                .border_type(border_type)
+                .border_style(Style::default().fg(border_color));
+            let paragraph = Paragraph::new(lines)
+                .block(block)
+                .style(Style::default().fg(primary_color));
+            frame.render_widget(paragraph, area);
+        };
+
+        render_pkg_panel(frame, pkg_a_area, &comp.pkg_a, &comp.details_a);
+        render_pkg_panel(frame, pkg_b_area, &comp.pkg_b, &comp.details_b);
+
+        // Title above both panels
+        let title = Paragraph::new("Package Comparison (Esc to close)")
+            .style(Style::default().fg(highlight_color).add_modifier(Modifier::BOLD))
+            .alignment(ratatui::layout::Alignment::Center);
+        frame.render_widget(title, Rect {
+            x: area.x,
+            y: area.y.saturating_sub(1),
+            width: area.width,
+            height: 1,
+        });
+    }
 }
 
 fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
@@ -413,8 +504,6 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
             } else {
                 Style::default().fg(primary_color)
             };
-            // Bold + underline the focused row for extra visibility without
-            // duplicating the row-level highlight background set below.
             let name_style = if is_selected {
                 name_style.add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
             } else {
@@ -516,7 +605,6 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
     let key_style = Style::default().fg(highlight_color).add_modifier(Modifier::BOLD);
     let section_style = Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC);
 
-    // Display Space key as a readable label
     let toggle_display = if keys.toggle_select == " " {
         "Space".to_string()
     } else {
@@ -539,7 +627,7 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         Line::from(vec![Span::styled(format!("{:<18}", "Esc"), key_style), Span::raw("Exit search / close overlay")]),
         Line::from(""),
         Line::from(Span::styled("Packages", section_style)),
-        Line::from(vec![Span::styled(format!("{:<18}", toggle_display), key_style), Span::raw("Toggle package selection (also toggles settings on the Settings tab)")]),
+        Line::from(vec![Span::styled(format!("{:<18}", toggle_display), key_style), Span::raw("Toggle package selection")]),
         Line::from(vec![Span::styled(format!("{:<18}", &keys.install), key_style), Span::raw("Install selected packages")]),
         Line::from(vec![Span::styled(format!("{:<18}", &keys.remove), key_style), Span::raw("Remove selected packages")]),
         Line::from(vec![Span::styled(format!("{:<18}", &keys.system_upgrade), key_style), Span::raw("Full system upgrade")]),
