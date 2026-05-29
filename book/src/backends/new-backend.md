@@ -24,6 +24,69 @@ pub mod dnf;
 
 ## Step 2 — Implement `PackageManager`
 
+### Understanding the PackageManager Trait
+
+Every backend must implement all methods defined in the `PackageManager` trait.
+
+### name()
+
+Returns a human-readable name for the package manager.
+
+Example:
+- "APT (Debian/Ubuntu)"
+- "Homebrew (macOS/Linux)"
+
+### search(query)
+
+Searches for packages matching the provided query and returns a `Vec<Package>`.
+
+Expected behavior:
+- Execute the package manager's search command
+- Parse command output
+- Calculate fuzzy-match scores
+- Return matching packages
+
+### get_installed()
+
+Returns all installed package names as a `HashSet<String>`.
+
+### get_installed_details()
+
+Returns detailed information about installed packages, including version and description.
+
+### get_updates()
+
+Returns packages that have updates available.
+
+### get_details(pkg, provider)
+
+Returns detailed metadata for a package.
+
+Expected behavior:
+- Check `DETAILS_CACHE` before making external calls
+- Store fetched results in the cache
+- Return package metadata as a `HashMap<String, String>`
+
+### install()
+
+Installs the selected packages.
+
+### remove()
+
+Removes the selected packages.
+
+### update_packages()
+
+Updates only the selected packages.
+
+### system_upgrade()
+
+Performs a full system upgrade using the package manager.
+
+### refresh_databases()
+
+Refreshes package indexes and metadata before searches or upgrades.
+
 Below is a minimal skeleton. All methods must be implemented (the trait has no default implementations):
 
 ```rust
