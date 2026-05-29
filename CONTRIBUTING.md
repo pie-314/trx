@@ -85,6 +85,8 @@ Improve README, examples, architecture docs, or this file.
 ### **General**
 
 * Keep the codebase clean and idiomatic.
+* **Do not add useless or redundant comments** (especially AI-generated "noise").
+* **Do not delete existing comments** unless they are factually incorrect or the code they describe has been removed.
 * Prefer pure functions in UI components.
 * Avoid blocking the UI thread with heavy I/O.
 * Use **OS threads** and **mpsc channels** for background tasks (no async runtime).
@@ -103,7 +105,7 @@ cargo clippy
 
 ### **Commits**
 
-* Use clear, atomic commit messages.
+* Use clear, atomic commit messages following [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 * Example:
 
   * `feat(pacman): async metadata caching`
@@ -119,17 +121,22 @@ cargo clippy
 Before creating an issue:
 
 * Check if the issue already exists.
-* Provide steps to reproduce.
+* Use the provided **Issue Templates** to report bugs or request features.
 * Include logs, platform, and version when relevant.
 
-Labels you will commonly see:
+### **Claiming an Issue**
 
-* `good first issue`
-* `help wanted`
-* `backend`
-* `tui`
-* `fuzzy`
-* `performance`
+If you want to work on an existing issue:
+
+1. **Comment on the issue** expressing your interest.
+2. **Describe how you plan to solve it.**
+3. **Show screenshots/recordings** if the proposed change is visual or UI-related.
+4. A maintainer will then assign the issue to you.
+
+**Important Rules:**
+* **Atomic PRs:** One PR should solve exactly one issue. Do not combine multiple unrelated fixes or features.
+* **No Unrelated Changes:** Do not modify, reformat, or delete code in files unrelated to your assigned task. Check your `git diff` before committing.
+* **Draft PRs:** If you want early feedback or aren't finished yet, open a **Draft Pull Request**.
 
 ### **Pull Requests**
 
@@ -148,6 +155,7 @@ Labels you will commonly see:
    * what changed
    * why
    * how it was tested
+   * **screenshots or recordings** (if the change affects the UI)
 
 PRs should not include unrelated formatting changes.
 

@@ -2,7 +2,11 @@
 
 ## Code Style
 
-TRX follows standard Rust idioms. Before committing, always run:
+TRX follows standard Rust idioms.
+
+- **No AI Noise:** Do not add useless, redundant, or AI-generated comments that just restate what the code does.
+- **Respect Context:** Do not delete existing comments unless the associated code is removed or the comment is objectively wrong.
+- **Formatting:** Before committing, always run:
 
 ```bash
 cargo fmt

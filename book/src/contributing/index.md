@@ -40,11 +40,11 @@ cargo test         # run the test suite
 3. Run `cargo fmt` and `cargo clippy` (zero warnings preferred).
 4. Run `cargo test`.
 5. Commit using conventional commit messages (see [Coding Guidelines](./coding-guidelines.md)).
-6. Open a PR **against the `dev` branch** describing what changed, why, and how it was tested.
+6. Open a PR **against the `dev` branch** describing what changed, why, how it was tested, and **include screenshots** for UI changes.
 
 ---
 
-## Issues
+## Issues & Claiming
 
 Before filing an issue, check if it already exists. When reporting a bug, include:
 
@@ -52,5 +52,11 @@ Before filing an issue, check if it already exists. When reporting a bug, includ
 - Platform (OS, package manager version)
 - TRX version (`trx --version`)
 - Relevant terminal output or screenshots
+
+**If you want to work on an issue:**
+1. Comment on the issue to express interest.
+2. **Briefly describe your proposed solution.**
+3. **Include screenshots or mockups** if it's a UI change.
+4. Wait for a maintainer to assign it to you before starting significant work.
 
 Common issue labels: `good first issue`, `help wanted`, `backend`, `tui`, `fuzzy`, `performance`.

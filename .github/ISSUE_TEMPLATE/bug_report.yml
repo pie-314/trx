@@ -1,0 +1,40 @@
+name: 🐛 Bug Report
+description: Report a bug to help us improve TRX
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Run 'trx'
+        2. Press '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: Platform / Environment
+      description: OS (Arch, macOS, Ubuntu), terminal emulator, and TRX version.
+      placeholder: "e.g., Arch Linux, Alacritty, TRX v0.1.8"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Output
+      description: Please paste any terminal output or logs here.
+      render: bash

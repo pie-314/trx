@@ -45,4 +45,10 @@ This page tracks planned and in-progress features for TRX.
 
 ## Contributing to the Roadmap
 
-If you want to work on a planned feature, open a GitHub Discussion or comment on the relevant issue. See the [Contributing Guide](./contributing/index.md) for how to get started.
+If you want to work on a planned feature:
+1. Open a GitHub Discussion or comment on the relevant issue.
+2. **Describe how you plan to implement the feature.**
+3. **Provide mockups or screenshots** if it involves UI changes.
+4. Wait for assignment before starting work.
+
+See the [Contributing Guide](./contributing/index.md) for more details.
