@@ -71,7 +71,7 @@ pub fn pacman_install(
     args.extend(pure);
 
     let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
-    execute_external_command(
+    crate::execute_package_command(
         terminal,
         "sudo",
         {
@@ -100,7 +100,7 @@ pub fn pacman_remove(
     args.extend(pure);
 
     let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
-    execute_external_command(
+    crate::execute_package_command(
         terminal,
         "sudo",
         {

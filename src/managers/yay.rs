@@ -120,7 +120,7 @@ pub fn aur_install(
     args.extend(pure);
 
     let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
-    execute_external_command(terminal, aur_helper, &args_ref)?;
+    crate::execute_package_command(terminal, aur_helper, &args_ref)?;
 
     Ok(())
 }

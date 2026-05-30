@@ -225,7 +225,7 @@ impl PackageManager for BrewManager {
         let mut args = vec!["install"];
         let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
-        crate::execute_external_command(terminal, "brew", &args)?;
+        crate::execute_package_command(terminal, "brew", &args)?;
         Ok(())
     }
 
@@ -237,7 +237,7 @@ impl PackageManager for BrewManager {
         let mut args = vec!["uninstall"];
         let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
-        crate::execute_external_command(terminal, "brew", &args)?;
+        crate::execute_package_command(terminal, "brew", &args)?;
         Ok(())
     }
 
