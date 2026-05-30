@@ -6,11 +6,7 @@ use std::collections::{HashMap, HashSet};
 pub fn search_pacman(search_word: &str) -> Vec<Package> {
     // We'll use pacman -Ss for searching as it's more reliable than parsing .db files manually
     // and handles all configured repositories automatically.
-    let output = std::process::Command::new("pacman")
-        .arg("-Ss")
-        .arg(search_word)
-        .output()
-        .ok();
+    let output = std::process::Command::new("pacman").arg("-Ss").arg(search_word).output().ok();
 
     if let Some(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -23,28 +19,16 @@ pub fn search_pacman(search_word: &str) -> Vec<Package> {
 
 pub fn pacman_info(pkg: &str) -> Option<HashMap<String, String>> {
     // Try -Si first (remote), then -Qi (local)
-    let output = std::process::Command::new("pacman")
-        .arg("-Si")
-        .arg(pkg)
-        .output()
-        .ok();
+    let output = std::process::Command::new("pacman").arg("-Si").arg(pkg).output().ok();
 
     let output = if let Some(o) = output {
         if o.status.success() {
             Some(o)
         } else {
-            std::process::Command::new("pacman")
-                .arg("-Qi")
-                .arg(pkg)
-                .output()
-                .ok()
+            std::process::Command::new("pacman").arg("-Qi").arg(pkg).output().ok()
         }
     } else {
-        std::process::Command::new("pacman")
-            .arg("-Qi")
-            .arg(pkg)
-            .output()
-            .ok()
+        std::process::Command::new("pacman").arg("-Qi").arg(pkg).output().ok()
     };
 
     if let Some(output) = output {
@@ -80,10 +64,8 @@ pub fn pacman_install(
         return Ok(());
     }
 
-    let pure: Vec<String> = selected
-        .iter()
-        .map(|n| n.split('/').last().unwrap_or(n).to_string())
-        .collect();
+    let pure: Vec<String> =
+        selected.iter().map(|n| n.split('/').next_back().unwrap_or(n).to_string()).collect();
 
     let mut args: Vec<String> = vec!["-S".into(), "--needed".into()];
     args.extend(pure);
@@ -111,10 +93,8 @@ pub fn pacman_remove(
         return Ok(());
     }
 
-    let pure: Vec<String> = selected
-        .iter()
-        .map(|n| n.split('/').last().unwrap_or(n).to_string())
-        .collect();
+    let pure: Vec<String> =
+        selected.iter().map(|n| n.split('/').next_back().unwrap_or(n).to_string()).collect();
 
     let mut args: Vec<String> = vec!["-Rs".into()];
     args.extend(pure);

@@ -14,10 +14,7 @@ impl PackageManager for AptManager {
         if query.is_empty() {
             return Vec::new();
         }
-        let output = Command::new("apt-cache")
-            .args(&["search", query])
-            .output()
-            .ok();
+        let output = Command::new("apt-cache").args(["search", query]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -25,7 +22,7 @@ impl PackageManager for AptManager {
                 .lines()
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.splitn(2, " - ").collect();
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         let name = parts[0].trim().to_string();
                         let desc = parts.get(1).unwrap_or(&"").trim().to_string();
                         let score = crate::fuzzy::fuzzy_match(query, &name);
@@ -48,10 +45,7 @@ impl PackageManager for AptManager {
     }
 
     fn get_installed(&self) -> HashSet<String> {
-        let output = Command::new("dpkg-query")
-            .args(&["-W", "-f=${Package}\n"])
-            .output()
-            .ok();
+        let output = Command::new("dpkg-query").args(["-W", "-f=${Package}\n"]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -63,7 +57,7 @@ impl PackageManager for AptManager {
 
     fn get_installed_details(&self) -> Vec<Package> {
         let output = Command::new("dpkg-query")
-            .args(&["-W", "-f=${Package}\t${Version}\t${Description}\n"])
+            .args(["-W", "-f=${Package}\t${Version}\t${Description}\n"])
             .output()
             .ok();
 
@@ -92,10 +86,7 @@ impl PackageManager for AptManager {
     }
 
     fn get_updates(&self) -> Vec<Package> {
-        let output = Command::new("apt")
-            .args(&["list", "--upgradable"])
-            .output()
-            .ok();
+        let output = Command::new("apt").args(["list", "--upgradable"]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -104,7 +95,7 @@ impl PackageManager for AptManager {
                 .skip(1)
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.split('/').collect();
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         Some(Package {
                             provider: "apt/update".to_string(),
                             name: parts[0].to_string(),
@@ -131,10 +122,7 @@ impl PackageManager for AptManager {
             }
         }
 
-        let output = Command::new("apt-cache")
-            .args(&["show", pkg])
-            .output()
-            .ok()?;
+        let output = Command::new("apt-cache").args(["show", pkg]).output().ok()?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut out = HashMap::new();
@@ -178,7 +166,9 @@ impl PackageManager for AptManager {
         terminal: &mut DefaultTerminal,
         pkgs: &HashSet<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if pkgs.is_empty() { return Ok(()); }
+        if pkgs.is_empty() {
+            return Ok(());
+        }
         let mut args = vec!["apt", "install", "--only-upgrade", "-y"];
         let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);

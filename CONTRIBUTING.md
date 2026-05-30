@@ -12,22 +12,32 @@ git clone https://github.com/pie-314/trx.git
 cd trx
 ```
 
+### **First-time setup (recommended)**
+
+Run the setup script once after cloning. It registers the project's git hooks (`pre-commit` runs fmt + clippy; `pre-push` runs the full verify suite) and makes the helper scripts executable:
+
+```bash
+./scripts/setup.sh
+```
+
+Equivalent: `make setup`.
+
 ### **Build the project**
 
 ```bash
-cargo build
+cargo build          # or: make build
 ```
 
 ### **Run the project**
 
 ```bash
-cargo run
+cargo run            # or: make run
 ```
 
 ### **Run tests**
 
 ```bash
-cargo test
+cargo test           # or: make test
 ```
 
 Ensure the project builds without warnings before opening a pull request.
@@ -94,14 +104,25 @@ Improve README, examples, architecture docs, or this file.
 
 ### **Style**
 
-* Follow standard Rust formatting:
+* Follow standard Rust formatting. The project ships with `rustfmt.toml` and `.clippy.toml` so everyone gets identical results.
+
+Two helper scripts wrap the common workflow:
 
 ```bash
-cargo fmt
-cargo clippy
+./scripts/fix.sh      # auto-format + auto-apply clippy fixes, then verify   (or: make fix)
+./scripts/verify.sh   # fmt check + clippy + tests + build                   (or: make verify)
 ```
 
-(Clippy warnings should ideally be zero.)
+If you'd rather run the raw cargo commands:
+
+```bash
+cargo fmt --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A dead_code -A clippy::type_complexity
+```
+
+The two `-A` flags allow a small number of pre-existing patterns; everything else is treated as a hard error. If you add code that trips a *new* clippy lint, fix it rather than expanding the allow list.
+
+If you ran `./scripts/setup.sh`, the `pre-commit` hook runs fmt + clippy automatically and the `pre-push` hook runs the full `verify` suite — so most of this happens for you.
 
 ### **Commits**
 
@@ -192,12 +213,29 @@ Recommended tools:
 * Clippy (`rustup component add clippy`)
 * Rustfmt (`rustup component add rustfmt`)
 * A terminal supporting Unicode + truecolor
+* `make` (used by the project's task runner)
+
+Project task runner (`Makefile`):
+
+| Target         | What it does                                            |
+| -------------- | ------------------------------------------------------- |
+| `make setup`   | Install git hooks and make scripts executable           |
+| `make run`     | Run the TUI                                             |
+| `make build`   | Build all targets with all features                     |
+| `make test`    | Run the test suite                                      |
+| `make fix`     | Auto-format and auto-apply clippy fixes, then verify    |
+| `make verify`  | Full check: fmt + clippy + tests + build (what CI runs) |
+| `make fmt`     | `cargo fmt --all`                                       |
+| `make lint`    | `cargo clippy` with the project lint config             |
+| `make clean`   | `cargo clean`                                           |
+
+Continuous integration (`.github/workflows/ci.yml`) runs `make verify` plus `cargo audit` on every PR and push to `main`. Running `make verify` locally before pushing keeps the CI feedback loop short.
 
 Optional tools:
 
 * `cargo-expand` for macro debugging
+* `cargo-audit` for security audits (CI runs this; install locally with `cargo install cargo-audit --locked` if you want to check before pushing)
 * `cargo-insta` for snapshot testing (planned)
-* `just` for project scripts (future integration)
 
 ---
 

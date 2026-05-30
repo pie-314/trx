@@ -38,7 +38,14 @@ fn main() -> Result<()> {
                 println!("  {:<16} Switch to next tab", format!("{}/Tab", keys.tab_next));
                 println!("  {:<16} Switch to previous tab", format!("{}/Shift+Tab", keys.tab_prev));
                 println!("  {:<16} Edit search query (Search tab)", keys.search_edit);
-                println!("  {:<16} Toggle package selection or settings", if keys.toggle_select == " " { "Space".to_string() } else { keys.toggle_select.clone() });
+                println!(
+                    "  {:<16} Toggle package selection or settings",
+                    if keys.toggle_select == " " {
+                        "Space".to_string()
+                    } else {
+                        keys.toggle_select.clone()
+                    }
+                );
                 println!("  {:<16} Install selected packages", keys.install);
                 println!("  {:<16} Remove selected packages", keys.remove);
                 println!("  {:<16} Update selected packages", keys.update);
@@ -57,8 +64,10 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let mut terminal = init();
     execute!(std::io::stdout(), EnableMouseCapture)?;
-    let (result_tx, result_rx): (mpsc::Sender<(String, Vec<Package>)>, mpsc::Receiver<(String, Vec<Package>)>) =
-        mpsc::channel();
+    let (result_tx, result_rx): (
+        mpsc::Sender<(String, Vec<Package>)>,
+        mpsc::Receiver<(String, Vec<Package>)>,
+    ) = mpsc::channel();
     let app_result = App::new(result_tx.clone(), result_rx).run(&mut terminal);
     execute!(std::io::stdout(), DisableMouseCapture)?;
     restore();
@@ -77,7 +86,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Ok(None) => Ok(()),
-        Err(e) => Err(e.into()),
+        Err(e) => Err(e),
     }
 }
 
@@ -87,12 +96,7 @@ pub fn execute_external_command(
     args: &[&str],
 ) -> Result<()> {
     terminal::disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        Show,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, Show, DisableMouseCapture)?;
 
     println!("\n{}", "=".repeat(40));
     println!(" RUNNING: {} {}", cmd, args.join(" "));

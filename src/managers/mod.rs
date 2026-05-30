@@ -1,12 +1,12 @@
-pub mod pacman;
-pub mod yay;
+pub mod apt;
 pub mod arch;
 pub mod brew;
-pub mod apt;
+pub mod pacman;
+pub mod yay;
 
+use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-use ratatui::DefaultTerminal;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Package {
@@ -24,11 +24,29 @@ pub trait PackageManager: Send + Sync {
     fn get_installed_details(&self) -> Vec<Package>;
     fn get_updates(&self) -> Vec<Package>;
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>>;
-    fn install(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
-    fn remove(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
-    fn update_packages(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>>;
-    fn system_upgrade(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>>;
-    fn refresh_databases(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>>;
+    fn install(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn remove(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn update_packages(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn system_upgrade(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn refresh_databases(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 pub struct CombinedManager {
@@ -76,8 +94,9 @@ impl PackageManager for CombinedManager {
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>> {
         for m in &self.managers {
             // Check if this manager's name/prefix matches the provider
-            if provider.to_lowercase().contains(&m.name().to_lowercase()) 
-               || m.name().to_lowercase().contains(&provider.to_lowercase()) {
+            if provider.to_lowercase().contains(&m.name().to_lowercase())
+                || m.name().to_lowercase().contains(&provider.to_lowercase())
+            {
                 return m.get_details(pkg, provider);
             }
         }
@@ -90,7 +109,11 @@ impl PackageManager for CombinedManager {
         None
     }
 
-    fn install(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+    fn install(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
             // This is tricky; we'd need to know which package belongs to which manager.
             // For now, let's assume the manager's internal logic handles its own packages.
@@ -99,23 +122,29 @@ impl PackageManager for CombinedManager {
         Ok(())
     }
 
-    fn remove(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+    fn remove(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
             m.remove(terminal, pkgs)?;
         }
         Ok(())
     }
 
-    fn update_packages(&self, terminal: &mut DefaultTerminal, pkgs: &HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+    fn update_packages(
+        &self,
+        terminal: &mut DefaultTerminal,
+        pkgs: &HashSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Partition `pkgs` by manager: only send a package to the backend that
         // owns it (determined by intersecting with each manager's installed set).
         // This prevents backends from attempting to upgrade packages they don't manage.
         for m in &self.managers {
             let installed = m.get_installed();
-            let manager_pkgs: HashSet<String> = pkgs.iter()
-                .filter(|p| installed.contains(*p))
-                .cloned()
-                .collect();
+            let manager_pkgs: HashSet<String> =
+                pkgs.iter().filter(|p| installed.contains(*p)).cloned().collect();
             if !manager_pkgs.is_empty() {
                 m.update_packages(terminal, &manager_pkgs)?;
             }
@@ -123,14 +152,20 @@ impl PackageManager for CombinedManager {
         Ok(())
     }
 
-    fn system_upgrade(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>> {
+    fn system_upgrade(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
             m.system_upgrade(terminal)?;
         }
         Ok(())
     }
 
-    fn refresh_databases(&self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>> {
+    fn refresh_databases(
+        &self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
             m.refresh_databases(terminal)?;
         }
@@ -140,20 +175,20 @@ impl PackageManager for CombinedManager {
 
 pub fn get_available_managers() -> Vec<String> {
     let mut available = Vec::new();
-    
+
     if std::process::Command::new("pacman").arg("--version").output().is_ok() {
         available.push("pacman".to_string());
         available.push("yay".to_string());
     }
-    
+
     if std::process::Command::new("brew").arg("--version").output().is_ok() {
         available.push("brew".to_string());
     }
-    
+
     if std::process::Command::new("apt").arg("--version").output().is_ok() {
         available.push("apt".to_string());
     }
-    
+
     available
 }
 
@@ -166,8 +201,9 @@ pub fn get_system_manager(config: &crate::config::Config) -> Box<dyn PackageMana
         managers.push(Box::new(brew::BrewManager));
     }
 
-    if (available.contains(&"pacman".to_string()) || available.contains(&"yay".to_string())) 
-        && (enabled.contains(&"pacman".to_string()) || enabled.contains(&"yay".to_string())) {
+    if (available.contains(&"pacman".to_string()) || available.contains(&"yay".to_string()))
+        && (enabled.contains(&"pacman".to_string()) || enabled.contains(&"yay".to_string()))
+    {
         managers.push(Box::new(arch::ArchManager::new(config.aur_helper.clone())));
     }
 
@@ -212,7 +248,7 @@ pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> 
             let version = parts[1].to_string();
             let description = second_line.trim().to_string();
 
-            let package_name = package.split('/').last().unwrap_or(&package).to_string();
+            let package_name = package.split('/').next_back().unwrap_or(&package).to_string();
             let score = crate::fuzzy::fuzzy_match(query, &package_name);
 
             res.push(Package {
@@ -228,11 +264,7 @@ pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> 
     }
 
     res.retain(|p| p.score > 0.01);
-    res.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    res.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
     res
 }
