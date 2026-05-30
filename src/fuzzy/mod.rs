@@ -86,11 +86,8 @@ pub fn fuzzy_get_indexes(query: &[char], target: &[char]) -> Option<Vec<usize>> 
             ti += 1;
         }
 
-        if let Some(idx) = found {
-            out.push(idx);
-        } else {
-            return None;
-        }
+        let idx = found?;
+        out.push(idx);
     }
 
     Some(out)

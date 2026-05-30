@@ -5,7 +5,7 @@ mod ui;
 mod updater;
 
 use color_eyre::Result;
-use managers::Package;
+
 use ratatui::crossterm::{
     cursor::{Hide, Show},
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -64,10 +64,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let mut terminal = init();
     execute!(std::io::stdout(), EnableMouseCapture)?;
-    let (result_tx, result_rx): (
-        mpsc::Sender<(String, Vec<Package>)>,
-        mpsc::Receiver<(String, Vec<Package>)>,
-    ) = mpsc::channel();
+    let (result_tx, result_rx) = mpsc::channel();
     let app_result = App::new(result_tx.clone(), result_rx).run(&mut terminal);
     execute!(std::io::stdout(), DisableMouseCapture)?;
     restore();

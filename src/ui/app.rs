@@ -223,12 +223,7 @@ impl App {
         }
     }
 
-    /// Returns the last successfully executed search query (updated after debounce).
-    /// Prefer checking `input.trim()` for the *current* user input.
-    pub fn search_query(&self) -> &str {
-        &self.last_search_query
-    }
-
+    /// Checks if the debounce period has passed and executes the search if necessary.
     fn check_and_execute_search(&mut self) {
         let debounce_ms = self.config.settings.search_debounce_ms;
 
