@@ -43,9 +43,9 @@ pub fn search_aur(search_word: &str, _aur_helper: &str) -> Vec<Package> {
             let name = item["Name"].as_str().unwrap_or("").to_string();
             let version = item["Version"].as_str().unwrap_or("").to_string();
             let description = item["Description"].as_str().unwrap_or("").to_string();
-            
+
             let score = crate::fuzzy::fuzzy_match(search_word, &name);
-            
+
             results.push(Package {
                 provider: "aur".to_string(),
                 name,
@@ -113,10 +113,8 @@ pub fn aur_install(
         return Ok(());
     }
 
-    let pure: Vec<String> = selected
-        .iter()
-        .map(|n| n.split('/').last().unwrap_or(n).to_string())
-        .collect();
+    let pure: Vec<String> =
+        selected.iter().map(|n| n.split('/').next_back().unwrap_or(n).to_string()).collect();
 
     let mut args: Vec<String> = vec!["-S".into(), "--needed".into()];
     args.extend(pure);

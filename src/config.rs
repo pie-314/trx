@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::fs;
 use directories::ProjectDirs;
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
+use std::fs;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
@@ -70,7 +70,12 @@ impl Default for Config {
                 auto_cleanup: false,
                 default_tab: "Search".to_string(),
                 max_search_results: 50,
-                enabled_managers: vec!["pacman".to_string(), "yay".to_string(), "brew".to_string(), "apt".to_string()],
+                enabled_managers: vec![
+                    "pacman".to_string(),
+                    "yay".to_string(),
+                    "brew".to_string(),
+                    "apt".to_string(),
+                ],
                 border_style: "Rounded".to_string(),
                 spinner_type: "Dots".to_string(),
                 skipped_update_version: None,
@@ -110,10 +115,10 @@ impl Config {
             let config_path = config_dir.join("config.toml");
 
             if config_path.exists() {
-                if let Ok(content) = fs::read_to_string(config_path) {
-                    if let Ok(config) = toml::from_str(&content) {
-                        return config;
-                    }
+                if let Ok(content) = fs::read_to_string(config_path)
+                    && let Ok(config) = toml::from_str(&content)
+                {
+                    return config;
                 }
             } else {
                 // Create default config
@@ -184,12 +189,12 @@ impl Config {
     }
 
     pub fn current_theme(&self) -> Theme {
-        if self.theme_name == "Custom" {
-            if let Some(ref custom) = self.custom_theme {
-                return custom.clone();
-            }
+        if self.theme_name == "Custom"
+            && let Some(ref custom) = self.custom_theme
+        {
+            return custom.clone();
         }
-        
+
         match self.theme_name.as_str() {
             "Nord" => Theme {
                 border_color: "#81A1C1".to_string(),
@@ -235,4 +240,3 @@ impl Config {
         }
     }
 }
-
