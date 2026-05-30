@@ -815,7 +815,9 @@ impl App {
                                 KeyCode::Backspace => self.delete_char(),
                                 KeyCode::Left => self.move_cursor_left(),
                                 KeyCode::Right => self.move_cursor_right(),
-                                KeyCode::Esc => self.input_mode = InputMode::Normal,
+                                KeyCode::Esc => {
+                                    self.input_mode = InputMode::Normal;
+                                }
                                 _ => {}
                             },
 
@@ -897,9 +899,9 @@ impl App {
                         }
                         current_x += width + 3; // 3 for " | " separator in Ratatui Tabs
                     }
-                }
+                } else if
                 // Settings interaction
-                else if self.current_tab == Tab::Settings {
+                self.current_tab == Tab::Settings {
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
 
@@ -925,9 +927,8 @@ impl App {
                             self.handle_settings_toggle();
                         }
                     }
-                }
-                // List/Details interaction
-                else {
+                } else {
+                    // List/Details interaction
                     let is_wide = term_width >= 100;
                     let split_col = if is_wide { term_width / 2 } else { (term_width * 6) / 10 };
 
@@ -958,7 +959,7 @@ impl App {
 
                         // Scrollbar click for list
                         if mouse_event.column >= split_col - 2 && mouse_event.column < split_col {
-                            if mouse_event.row < (term_width / 2) {
+                            if mouse_event.row < term_width / 2 {
                                 if self.selected > 0 {
                                     self.selected -= 1;
                                 }
@@ -973,7 +974,7 @@ impl App {
                     } else {
                         // Details Area Scroll
                         if mouse_event.column >= term_width - 2 {
-                            if mouse_event.row < (term_width / 4) {
+                            if mouse_event.row < term_width / 4 {
                                 self.details_scroll = self.details_scroll.saturating_sub(1);
                             } else {
                                 self.details_scroll = self.details_scroll.saturating_add(1);
@@ -1085,12 +1086,24 @@ impl App {
             i if i >= 7 + mgr_count && i <= 12 + mgr_count => {
                 if let Some(ref mut theme) = self.config.custom_theme {
                     match i - (7 + mgr_count) {
-                        0 => theme.border_color = val,
-                        1 => theme.highlight_color = val,
-                        2 => theme.success_color = val,
-                        3 => theme.error_color = val,
-                        4 => theme.text_primary = val,
-                        5 => theme.text_secondary = val,
+                        0 => {
+                            theme.border_color = val;
+                        }
+                        1 => {
+                            theme.highlight_color = val;
+                        }
+                        2 => {
+                            theme.success_color = val;
+                        }
+                        3 => {
+                            theme.error_color = val;
+                        }
+                        4 => {
+                            theme.text_primary = val;
+                        }
+                        5 => {
+                            theme.text_secondary = val;
+                        }
                         _ => {}
                     }
                     saved = true;
