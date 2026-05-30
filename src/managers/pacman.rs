@@ -1,6 +1,7 @@
 use super::Package;
 use crate::execute_external_command;
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 pub fn search_pacman(search_word: &str) -> Vec<Package> {
@@ -129,8 +130,9 @@ pub fn get_installed_packages() -> HashSet<String> {
 
     if let Some(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout
-            .lines()
+        let lines: Vec<&str> = stdout.lines().collect();
+        lines
+            .par_iter()
             .filter_map(|line| line.split_whitespace().next().map(|s| s.to_string()))
             .collect()
     } else {
@@ -143,8 +145,9 @@ pub fn get_installed_packages_details() -> Vec<Package> {
 
     if let Some(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout
-            .lines()
+        let lines: Vec<&str> = stdout.lines().collect();
+        lines
+            .par_iter()
             .filter_map(|line| {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
@@ -170,8 +173,9 @@ pub fn get_updates() -> Vec<Package> {
 
     if let Some(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout
-            .lines()
+        let lines: Vec<&str> = stdout.lines().collect();
+        lines
+            .par_iter()
             .filter_map(|line| {
                 // format: pkgname oldver -> newver
                 let parts: Vec<&str> = line.split_whitespace().collect();

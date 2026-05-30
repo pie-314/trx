@@ -1,5 +1,6 @@
 use crate::managers::{Package, PackageManager, SEARCH_CACHE};
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
@@ -55,7 +56,7 @@ impl PackageManager for BrewManager {
         let info_map = fetch_brew_info_batch(&names);
 
         let mut results: Vec<Package> = names
-            .iter()
+            .par_iter()
             .map(|name| {
                 let score = crate::fuzzy::fuzzy_match(query, name);
                 if let Some((version, description)) = info_map.get(name.as_str()) {
@@ -96,8 +97,9 @@ impl PackageManager for BrewManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines
+                .par_iter()
                 .filter_map(|l| l.split_whitespace().next().map(|s| s.to_string()))
                 .collect()
         } else {
@@ -110,8 +112,9 @@ impl PackageManager for BrewManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines
+                .par_iter()
                 .filter_map(|line| {
                     let mut parts = line.split_whitespace();
                     let name = parts.next()?.to_string();
@@ -139,8 +142,9 @@ impl PackageManager for BrewManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines
+                .par_iter()
                 .filter_map(|line| {
                     // format: "name (installed_version) < latest_version"
                     let mut parts = line.splitn(2, ' ');

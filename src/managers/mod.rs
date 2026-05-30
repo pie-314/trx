@@ -5,6 +5,7 @@ pub mod pacman;
 pub mod yay;
 
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -234,37 +235,69 @@ lazy_static::lazy_static! {
 }
 
 pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> Vec<Package> {
-    let mut res = Vec::new();
-    let mut i = 0;
+    let mut res: Vec<Package> = lines
+        .par_chunks(2)
+        .filter_map(|chunk| {
+            let [first_line, second_line] = chunk else {
+                return None;
+            };
 
-    while i + 1 < lines.len() {
-        let first_line = lines[i];
-        let second_line = lines[i + 1];
-
-        let parts: Vec<&str> = first_line.split_whitespace().collect();
-
-        if parts.len() >= 2 {
-            let package = parts[0].to_string();
-            let version = parts[1].to_string();
+            let mut parts = first_line.split_whitespace();
+            let package = parts.next()?.to_string();
+            let version = parts.next()?.to_string();
             let description = second_line.trim().to_string();
+            let package_name = package.split('/').next_back().unwrap_or(package.as_str());
+            let score = crate::fuzzy::fuzzy_match(query, package_name);
 
-            let package_name = package.split('/').next_back().unwrap_or(&package).to_string();
-            let score = crate::fuzzy::fuzzy_match(query, &package_name);
-
-            res.push(Package {
+            (score > 0.01).then(|| Package {
                 provider: manager.clone(),
                 name: package,
                 version,
                 description,
                 score,
-            });
-        }
+            })
+        })
+        .collect();
 
-        i += 2;
-    }
-
-    res.retain(|p| p.score > 0.01);
     res.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_alternating_lines;
+
+    #[test]
+    fn alternating_parser_ignores_incomplete_trailing_line() {
+        let lines = [
+            "extra/ripgrep 14.1.1-1",
+            "    fast recursive search tool",
+            "extra/fd 10.2.0-1",
+        ];
+
+        let packages = parse_alternating_lines(&lines, "pacman".into(), "ripgrep");
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "extra/ripgrep");
+        assert_eq!(packages[0].version, "14.1.1-1");
+        assert_eq!(packages[0].description, "fast recursive search tool");
+        assert_eq!(packages[0].provider, "pacman");
+    }
+
+    #[test]
+    fn alternating_parser_sorts_matching_packages_by_score() {
+        let lines = [
+            "extra/trx 0.1.0-1",
+            "    tui package manager",
+            "extra/trx-cli 0.1.0-1",
+            "    command line package manager",
+        ];
+
+        let packages = parse_alternating_lines(&lines, "pacman".into(), "trx");
+
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].name, "extra/trx");
+        assert!(packages[0].score >= packages[1].score);
+    }
 }

@@ -1,5 +1,6 @@
 use crate::managers::{Package, PackageManager};
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
@@ -18,8 +19,9 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines
+                .par_iter()
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.splitn(2, " - ").collect();
                     if !parts.is_empty() {
@@ -63,8 +65,9 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines
+                .par_iter()
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.split('\t').collect();
                     if parts.len() >= 2 {
@@ -90,9 +93,9 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
-                .skip(1)
+            let lines: Vec<&str> = stdout.lines().skip(1).collect();
+            lines
+                .par_iter()
                 .filter_map(|line| {
                     let parts: Vec<&str> = line.split('/').collect();
                     if !parts.is_empty() {

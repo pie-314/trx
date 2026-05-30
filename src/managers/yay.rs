@@ -1,5 +1,6 @@
 use crate::execute_external_command;
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use super::Package;
@@ -37,24 +38,27 @@ pub fn search_aur(search_word: &str, _aur_helper: &str) -> Vec<Package> {
         Err(_) => return Vec::new(),
     };
 
-    let mut results = Vec::new();
-    if let Some(arr) = json["results"].as_array() {
-        for item in arr {
+    let Some(arr) = json["results"].as_array() else {
+        return Vec::new();
+    };
+
+    let mut results: Vec<Package> = arr
+        .par_iter()
+        .map(|item| {
             let name = item["Name"].as_str().unwrap_or("").to_string();
             let version = item["Version"].as_str().unwrap_or("").to_string();
             let description = item["Description"].as_str().unwrap_or("").to_string();
-
             let score = crate::fuzzy::fuzzy_match(search_word, &name);
 
-            results.push(Package {
+            Package {
                 provider: "aur".to_string(),
                 name,
                 version,
                 description,
                 score,
-            });
-        }
-    }
+            }
+        })
+        .collect();
 
     results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
     results
