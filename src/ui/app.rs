@@ -4,8 +4,8 @@ use color_eyre::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
-    widgets::ListState,
     style::Color,
+    widgets::ListState,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -72,14 +72,17 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(result_tx: Sender<(String, Vec<Package>)>, result_rx: Receiver<(String, Vec<Package>)>) -> Self {
+    pub fn new(
+        result_tx: Sender<(String, Vec<Package>)>,
+        result_rx: Receiver<(String, Vec<Package>)>,
+    ) -> Self {
         let mut list_state = ListState::default();
         list_state.select(None);
 
         let (details_tx, details_rx) = std::sync::mpsc::channel();
         let (update_tx, update_rx) = std::sync::mpsc::channel();
         let config = crate::config::Config::load();
-        
+
         // Spawn parallel update check if enabled; keep a clone of the sender
         // so the user can manually re-trigger a check at any time.
         if config.settings.auto_update_check {
@@ -157,7 +160,8 @@ impl App {
     /// already in flight the call is a no-op.
     pub fn trigger_manual_update_check(&self) {
         // Atomically claim the in-flight slot; bail out if already taken.
-        if self.update_check_in_flight
+        if self
+            .update_check_in_flight
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_err()
         {
@@ -293,10 +297,10 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Prefer explicitly checked packages; fall back to the highlighted item.
         let mut to_update: HashSet<String> = self.selected_names.clone();
-        if to_update.is_empty() {
-            if let Some(pkg) = self.packages.get(self.selected) {
-                to_update.insert(pkg.name.clone());
-            }
+        if to_update.is_empty()
+            && let Some(pkg) = self.packages.get(self.selected)
+        {
+            to_update.insert(pkg.name.clone());
         }
         // Only update packages that are actually installed; avoids invoking
         // backend-specific upgrade commands on packages the system doesn't own.
@@ -409,7 +413,7 @@ impl App {
         let _ = self.config.save();
         // Re-initialize manager
         self.manager = Arc::new(managers::get_system_manager(&self.config));
-        
+
         // Refresh current list if applicable
         if self.current_tab != Tab::Settings {
             self.reset_tab_state();
@@ -417,7 +421,7 @@ impl App {
     }
 
     fn next_theme(&mut self) {
-        let themes = vec!["Default", "Nord", "Dracula", "OneDark", "Gruvbox", "Solarized", "Custom"];
+        let themes = ["Default", "Nord", "Dracula", "OneDark", "Gruvbox", "Solarized", "Custom"];
         let current_pos = themes.iter().position(|&t| t == self.config.theme_name).unwrap_or(0);
         let next_pos = (current_pos + 1) % themes.len();
         self.config.theme_name = themes[next_pos].to_string();
@@ -429,7 +433,7 @@ impl App {
     }
 
     fn prev_theme(&mut self) {
-        let themes = vec!["Default", "Nord", "Dracula", "OneDark", "Gruvbox", "Solarized", "Custom"];
+        let themes = ["Default", "Nord", "Dracula", "OneDark", "Gruvbox", "Solarized", "Custom"];
         let current_pos = themes.iter().position(|&t| t == self.config.theme_name).unwrap_or(0);
         let next_pos = if current_pos == 0 { themes.len() - 1 } else { current_pos - 1 };
         self.config.theme_name = themes[next_pos].to_string();
@@ -441,8 +445,9 @@ impl App {
     }
 
     fn next_default_tab(&mut self) {
-        let tabs = vec!["Search", "Installed", "Updates", "Settings"];
-        let current_pos = tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
+        let tabs = ["Search", "Installed", "Updates", "Settings"];
+        let current_pos =
+            tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
         let next_pos = (current_pos + 1) % tabs.len();
         self.config.settings.default_tab = tabs[next_pos].to_string();
         let _ = self.config.save();
@@ -450,8 +455,9 @@ impl App {
     }
 
     fn prev_default_tab(&mut self) {
-        let tabs = vec!["Search", "Installed", "Updates", "Settings"];
-        let current_pos = tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
+        let tabs = ["Search", "Installed", "Updates", "Settings"];
+        let current_pos =
+            tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
         let next_pos = if current_pos == 0 { tabs.len() - 1 } else { current_pos - 1 };
         self.config.settings.default_tab = tabs[next_pos].to_string();
         let _ = self.config.save();
@@ -459,8 +465,9 @@ impl App {
     }
 
     fn next_border_style(&mut self) {
-        let styles = vec!["Plain", "Rounded", "Double", "Thick"];
-        let current_pos = styles.iter().position(|&s| s == self.config.settings.border_style).unwrap_or(0);
+        let styles = ["Plain", "Rounded", "Double", "Thick"];
+        let current_pos =
+            styles.iter().position(|&s| s == self.config.settings.border_style).unwrap_or(0);
         let next_pos = (current_pos + 1) % styles.len();
         self.config.settings.border_style = styles[next_pos].to_string();
         let _ = self.config.save();
@@ -468,8 +475,9 @@ impl App {
     }
 
     fn prev_border_style(&mut self) {
-        let styles = vec!["Plain", "Rounded", "Double", "Thick"];
-        let current_pos = styles.iter().position(|&s| s == self.config.settings.border_style).unwrap_or(0);
+        let styles = ["Plain", "Rounded", "Double", "Thick"];
+        let current_pos =
+            styles.iter().position(|&s| s == self.config.settings.border_style).unwrap_or(0);
         let next_pos = if current_pos == 0 { styles.len() - 1 } else { current_pos - 1 };
         self.config.settings.border_style = styles[next_pos].to_string();
         let _ = self.config.save();
@@ -477,8 +485,9 @@ impl App {
     }
 
     fn next_spinner_type(&mut self) {
-        let types = vec!["Dots", "Bars", "Pulse", "Classic"];
-        let current_pos = types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
+        let types = ["Dots", "Bars", "Pulse", "Classic"];
+        let current_pos =
+            types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
         let next_pos = (current_pos + 1) % types.len();
         self.config.settings.spinner_type = types[next_pos].to_string();
         let _ = self.config.save();
@@ -486,8 +495,9 @@ impl App {
     }
 
     fn prev_spinner_type(&mut self) {
-        let types = vec!["Dots", "Bars", "Pulse", "Classic"];
-        let current_pos = types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
+        let types = ["Dots", "Bars", "Pulse", "Classic"];
+        let current_pos =
+            types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
         let next_pos = if current_pos == 0 { types.len() - 1 } else { current_pos - 1 };
         self.config.settings.spinner_type = types[next_pos].to_string();
         let _ = self.config.save();
@@ -505,21 +515,24 @@ impl App {
             }
 
             // check for update prompt response
-            if self.update_prompt.is_none() {
-                if let Ok(Some(update)) = self.update_rx.try_recv() {
-                    // Only clear a stored skip if the detected version is *different*
-                    // from what the user skipped. Clearing unconditionally would erase
-                    // the user's explicit choice when they manually recheck and dismiss.
-                    let detected_version = &update.0;
-                    let skip_is_stale = self.config.settings.skipped_update_version
-                        .as_deref()
-                        .map_or(false, |skipped| skipped != detected_version);
-                    if skip_is_stale {
-                        self.config.settings.skipped_update_version = None;
-                        let _ = self.config.save();
-                    }
-                    self.update_prompt = Some(update);
+            if self.update_prompt.is_none()
+                && let Ok(Some(update)) = self.update_rx.try_recv()
+            {
+                // Only clear a stored skip if the detected version is *different*
+                // from what the user skipped. Clearing unconditionally would erase
+                // the user's explicit choice when they manually recheck and dismiss.
+                let detected_version = &update.0;
+                let skip_is_stale = self
+                    .config
+                    .settings
+                    .skipped_update_version
+                    .as_deref()
+                    .is_some_and(|skipped| skipped != detected_version);
+                if skip_is_stale {
+                    self.config.settings.skipped_update_version = None;
+                    let _ = self.config.save();
                 }
+                self.update_prompt = Some(update);
             }
 
             // check search results
@@ -565,11 +578,11 @@ impl App {
                 self.details_state = state;
             }
 
-            if let Some(timer) = self.popup_timer {
-                if timer.elapsed() > Duration::from_secs(3) {
-                    self.popup_message = None;
-                    self.popup_timer = None;
-                }
+            if let Some(timer) = self.popup_timer
+                && timer.elapsed() > Duration::from_secs(3)
+            {
+                self.popup_message = None;
+                self.popup_timer = None;
             }
 
             terminal.draw(|frame| draw_ui(frame, &mut self))?;
@@ -596,7 +609,8 @@ impl App {
                                     }
                                     KeyCode::Esc | KeyCode::Char('q') => {
                                         if let Some((version, _)) = self.update_prompt.take() {
-                                            self.config.settings.skipped_update_version = Some(version);
+                                            self.config.settings.skipped_update_version =
+                                                Some(version);
                                             let _ = self.config.save();
                                         }
                                     }
@@ -609,7 +623,7 @@ impl App {
                         match self.input_mode {
                             InputMode::Normal if key.kind == KeyEventKind::Press => {
                                 let keys = &self.config.keys;
-                                
+
                                 // Check custom keybindings
                                 let is_key = |code: KeyCode, target: &str| -> bool {
                                     match code {
@@ -635,11 +649,15 @@ impl App {
                                     return Ok(None);
                                 } else if is_key(key.code, &keys.help) {
                                     self.show_help = !self.show_help;
-                                } else if is_key(key.code, &keys.tab_next) || key.code == KeyCode::Tab {
+                                } else if is_key(key.code, &keys.tab_next)
+                                    || key.code == KeyCode::Tab
+                                {
                                     self.switch_tab();
                                     self.last_selected = usize::MAX;
                                     self.trigger_details_fetch();
-                                } else if is_key(key.code, &keys.tab_prev) || key.code == KeyCode::BackTab {
+                                } else if is_key(key.code, &keys.tab_prev)
+                                    || key.code == KeyCode::BackTab
+                                {
                                     self.switch_tab_previous();
                                     self.last_selected = usize::MAX;
                                     self.trigger_details_fetch();
@@ -685,43 +703,55 @@ impl App {
                                         let name = pkg.name.clone();
                                         let is_checked = !self.checked[self.selected];
                                         self.checked[self.selected] = is_checked;
-                                        if is_checked { self.selected_names.insert(name); } else { self.selected_names.remove(&name); }
+                                        if is_checked {
+                                            self.selected_names.insert(name);
+                                        } else {
+                                            self.selected_names.remove(&name);
+                                        }
                                     }
                                 } else if is_key(key.code, &keys.search_edit) {
                                     self.show_help = false;
                                     self.input_mode = InputMode::Editing;
                                 } else {
                                     match key.code {
-                                        KeyCode::Left | KeyCode::Char('h') => {
-                                            if self.current_tab == Tab::Settings {
-                                                let mgr_count = self.available_managers.len();
-                                                if self.settings_index == 6 + mgr_count {
-                                                    self.prev_theme();
-                                                } else if self.settings_index == 6 + mgr_count + 1 {
-                                                    self.prev_border_style();
-                                                } else if self.settings_index == 6 + mgr_count + 2 {
-                                                    self.prev_spinner_type();
-                                                } else if self.settings_index == 4 {
-                                                    self.prev_default_tab();
-                                                } else if self.settings_index == 1 || self.settings_index == 2 || (self.settings_index >= 6 && self.settings_index < 6 + mgr_count) {
-                                                    self.handle_settings_toggle();
-                                                }
+                                        KeyCode::Left | KeyCode::Char('h')
+                                            if self.current_tab == Tab::Settings =>
+                                        {
+                                            let mgr_count = self.available_managers.len();
+                                            if self.settings_index == 6 + mgr_count {
+                                                self.prev_theme();
+                                            } else if self.settings_index == 6 + mgr_count + 1 {
+                                                self.prev_border_style();
+                                            } else if self.settings_index == 6 + mgr_count + 2 {
+                                                self.prev_spinner_type();
+                                            } else if self.settings_index == 4 {
+                                                self.prev_default_tab();
+                                            } else if self.settings_index == 1
+                                                || self.settings_index == 2
+                                                || (self.settings_index >= 6
+                                                    && self.settings_index < 6 + mgr_count)
+                                            {
+                                                self.handle_settings_toggle();
                                             }
                                         }
-                                        KeyCode::Right | KeyCode::Char('l') => {
-                                            if self.current_tab == Tab::Settings {
-                                                let mgr_count = self.available_managers.len();
-                                                if self.settings_index == 6 + mgr_count {
-                                                    self.next_theme();
-                                                } else if self.settings_index == 6 + mgr_count + 1 {
-                                                    self.next_border_style();
-                                                } else if self.settings_index == 6 + mgr_count + 2 {
-                                                    self.next_spinner_type();
-                                                } else if self.settings_index == 4 {
-                                                    self.next_default_tab();
-                                                } else if self.settings_index == 1 || self.settings_index == 2 || (self.settings_index >= 6 && self.settings_index < 6 + mgr_count) {
-                                                    self.handle_settings_toggle();
-                                                }
+                                        KeyCode::Right | KeyCode::Char('l')
+                                            if self.current_tab == Tab::Settings =>
+                                        {
+                                            let mgr_count = self.available_managers.len();
+                                            if self.settings_index == 6 + mgr_count {
+                                                self.next_theme();
+                                            } else if self.settings_index == 6 + mgr_count + 1 {
+                                                self.next_border_style();
+                                            } else if self.settings_index == 6 + mgr_count + 2 {
+                                                self.next_spinner_type();
+                                            } else if self.settings_index == 4 {
+                                                self.next_default_tab();
+                                            } else if self.settings_index == 1
+                                                || self.settings_index == 2
+                                                || (self.settings_index >= 6
+                                                    && self.settings_index < 6 + mgr_count)
+                                            {
+                                                self.handle_settings_toggle();
                                             }
                                         }
                                         KeyCode::Up | KeyCode::Char('k') => {
@@ -737,7 +767,11 @@ impl App {
                                         }
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
-                                                let max = if self.config.theme_name == "Custom" { 14 } else { 8 };
+                                                let max = if self.config.theme_name == "Custom" {
+                                                    14
+                                                } else {
+                                                    8
+                                                };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
                                                 }
@@ -747,31 +781,26 @@ impl App {
                                                 self.trigger_details_fetch();
                                             }
                                         }
-                                        KeyCode::Enter => {
-                                            if self.current_tab == Tab::Settings {
-                                                self.handle_settings_toggle();
-                                            }
+                                        KeyCode::Enter if self.current_tab == Tab::Settings => {
+                                            self.handle_settings_toggle();
                                         }
-                                        KeyCode::Home => {
-                                            if !self.packages.is_empty() {
-                                                self.selected = 0;
-                                                self.list_state.select(Some(self.selected));
-                                                self.trigger_details_fetch();
-                                            }
+                                        KeyCode::Home if !self.packages.is_empty() => {
+                                            self.selected = 0;
+                                            self.list_state.select(Some(self.selected));
+                                            self.trigger_details_fetch();
                                         }
-                                        KeyCode::End => {
-                                            if !self.packages.is_empty() {
-                                                self.selected = self.packages.len() - 1;
-                                                self.list_state.select(Some(self.selected));
-                                                self.trigger_details_fetch();
-                                            }
+                                        KeyCode::End if !self.packages.is_empty() => {
+                                            self.selected = self.packages.len() - 1;
+                                            self.list_state.select(Some(self.selected));
+                                            self.trigger_details_fetch();
                                         }
                                         _ => {}
                                     }
                                 }
                             }
 
-                            InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
+                            InputMode::Editing if key.kind == KeyEventKind::Press => match key.code
+                            {
                                 KeyCode::Enter => {
                                     if self.current_tab == Tab::Settings {
                                         self.handle_settings_save();
@@ -788,7 +817,7 @@ impl App {
                                 KeyCode::Right => self.move_cursor_right(),
                                 KeyCode::Esc => self.input_mode = InputMode::Normal,
                                 _ => {}
-                            }
+                            },
 
                             _ => {}
                         }
@@ -802,12 +831,20 @@ impl App {
         }
     }
 
-    fn handle_mouse_event(&mut self, mouse_event: event::MouseEvent, term_width: u16) -> Result<()> {
+    fn handle_mouse_event(
+        &mut self,
+        mouse_event: event::MouseEvent,
+        term_width: u16,
+    ) -> Result<()> {
         match mouse_event.kind {
             event::MouseEventKind::ScrollDown => {
                 if self.current_tab == Tab::Settings {
                     let mgr_count = self.available_managers.len();
-                    let max = if self.config.theme_name == "Custom" { 5 + mgr_count + 6 } else { 5 + mgr_count };
+                    let max = if self.config.theme_name == "Custom" {
+                        5 + mgr_count + 6
+                    } else {
+                        5 + mgr_count
+                    };
                     if self.settings_index < max {
                         self.settings_index += 1;
                     }
@@ -865,8 +902,8 @@ impl App {
                 else if self.current_tab == Tab::Settings {
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
-                    
-                    let idx = if r >= 7 && r <= 12 {
+
+                    let idx = if (7..=12).contains(&r) {
                         Some(r - 7)
                     } else if r >= 14 && r < 14 + mgr_count {
                         Some(r - 14 + 6)
@@ -893,7 +930,7 @@ impl App {
                 else {
                     let is_wide = term_width >= 100;
                     let split_col = if is_wide { term_width / 2 } else { (term_width * 6) / 10 };
-                    
+
                     if mouse_event.column < split_col {
                         // Package List
                         let offset = if self.current_tab == Tab::Search { 7 } else { 4 };
@@ -905,25 +942,33 @@ impl App {
                                 self.selected = real_idx;
                                 self.list_state.select(Some(self.selected));
                                 self.trigger_details_fetch();
-                                
+
                                 if mouse_event.column < 5 {
                                     let name = self.packages[real_idx].name.clone();
                                     let is_checked = !self.checked[real_idx];
                                     self.checked[real_idx] = is_checked;
-                                    if is_checked { self.selected_names.insert(name); } else { self.selected_names.remove(&name); }
+                                    if is_checked {
+                                        self.selected_names.insert(name);
+                                    } else {
+                                        self.selected_names.remove(&name);
+                                    }
                                 }
                             }
                         }
-                        
+
                         // Scrollbar click for list
-                        if mouse_event.column >= split_col - 2 && mouse_event.column <= split_col - 1 {
-                             if mouse_event.row < (term_width / 2) {
-                                 if self.selected > 0 { self.selected -= 1; }
-                             } else {
-                                 if self.selected + 1 < self.packages.len() { self.selected += 1; }
-                             }
-                             self.list_state.select(Some(self.selected));
-                             self.trigger_details_fetch();
+                        if mouse_event.column >= split_col - 2 && mouse_event.column < split_col {
+                            if mouse_event.row < (term_width / 2) {
+                                if self.selected > 0 {
+                                    self.selected -= 1;
+                                }
+                            } else {
+                                if self.selected + 1 < self.packages.len() {
+                                    self.selected += 1;
+                                }
+                            }
+                            self.list_state.select(Some(self.selected));
+                            self.trigger_details_fetch();
                         }
                     } else {
                         // Details Area Scroll
@@ -945,22 +990,30 @@ impl App {
     fn handle_settings_toggle(&mut self) {
         let mgr_count = self.available_managers.len();
         match self.settings_index {
-            1 => { // Auto Update Check
+            1 => {
+                // Auto Update Check
                 self.config.settings.auto_update_check = !self.config.settings.auto_update_check;
                 let _ = self.config.save();
-                self.set_popup(format!("Auto Update Check: {}", self.config.settings.auto_update_check), Color::Cyan);
+                self.set_popup(
+                    format!("Auto Update Check: {}", self.config.settings.auto_update_check),
+                    Color::Cyan,
+                );
             }
-            2 => { // Auto Cleanup
+            2 => {
+                // Auto Cleanup
                 self.config.settings.auto_cleanup = !self.config.settings.auto_cleanup;
                 let _ = self.config.save();
-                self.set_popup(format!("Auto Cleanup: {}", self.config.settings.auto_cleanup), Color::Cyan);
+                self.set_popup(
+                    format!("Auto Cleanup: {}", self.config.settings.auto_cleanup),
+                    Color::Cyan,
+                );
             }
             i if i >= 6 && i < 6 + mgr_count => {
                 let mgr_name = self.available_managers[i - 6].clone();
                 self.toggle_manager(&mgr_name);
             }
-            i if i == 6 + mgr_count => { 
-                self.next_theme(); 
+            i if i == 6 + mgr_count => {
+                self.next_theme();
             }
             i if i == 6 + mgr_count + 1 => {
                 self.next_border_style();
@@ -975,7 +1028,10 @@ impl App {
                     3 => self.config.settings.search_debounce_ms.to_string(),
                     4 => self.config.settings.default_tab.clone(),
                     5 => self.config.settings.max_search_results.to_string(),
-                    i if i >= 7 + mgr_count && i <= 12 + mgr_count && self.config.theme_name == "Custom" => {
+                    i if i >= 7 + mgr_count
+                        && i <= 12 + mgr_count
+                        && self.config.theme_name == "Custom" =>
+                    {
                         let theme = self.config.custom_theme.as_ref().unwrap();
                         match i - (7 + mgr_count) {
                             0 => theme.border_color.clone(),
@@ -989,7 +1045,10 @@ impl App {
                     }
                     _ => String::new(),
                 };
-                if !self.input.is_empty() || (self.settings_index >= 7 + mgr_count && self.settings_index <= 12 + mgr_count) {
+                if !self.input.is_empty()
+                    || (self.settings_index >= 7 + mgr_count
+                        && self.settings_index <= 12 + mgr_count)
+                {
                     self.input_mode = InputMode::Editing;
                     self.character_index = self.input.chars().count();
                 }
@@ -1003,10 +1062,26 @@ impl App {
         let mut saved = false;
 
         match self.settings_index {
-            0 => { self.config.aur_helper = val; saved = true; }
-            3 => if let Ok(n) = val.parse() { self.config.settings.search_debounce_ms = n; saved = true; },
-            4 => { self.config.settings.default_tab = val; saved = true; }
-            5 => if let Ok(n) = val.parse() { self.config.settings.max_search_results = n; saved = true; },
+            0 => {
+                self.config.aur_helper = val;
+                saved = true;
+            }
+            3 => {
+                if let Ok(n) = val.parse() {
+                    self.config.settings.search_debounce_ms = n;
+                    saved = true;
+                }
+            }
+            4 => {
+                self.config.settings.default_tab = val;
+                saved = true;
+            }
+            5 => {
+                if let Ok(n) = val.parse() {
+                    self.config.settings.max_search_results = n;
+                    saved = true;
+                }
+            }
             i if i >= 7 + mgr_count && i <= 12 + mgr_count => {
                 if let Some(ref mut theme) = self.config.custom_theme {
                     match i - (7 + mgr_count) {
@@ -1032,4 +1107,3 @@ impl App {
         }
     }
 }
-

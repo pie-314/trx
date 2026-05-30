@@ -32,7 +32,7 @@ pub fn check_for_updates(skipped_version: Option<&str>) -> Option<(String, Strin
     // If the user explicitly skipped this exact version, don't prompt again.
     // Once a genuinely newer release appears is_newer will be true for the
     // new version and the skipped entry becomes stale automatically.
-    if skipped_version.map_or(false, |s| s == latest_version) {
+    if skipped_version == Some(latest_version) {
         return None;
     }
 
@@ -45,14 +45,8 @@ pub fn check_for_updates(skipped_version: Option<&str>) -> Option<(String, Strin
             _ => return None,
         };
 
-        let asset = release
-            .assets
-            .iter()
-            .find(|a| a.name == target_asset_name)?;
-        Some((
-            latest_version.to_string(),
-            asset.browser_download_url.clone(),
-        ))
+        let asset = release.assets.iter().find(|a| a.name == target_asset_name)?;
+        Some((latest_version.to_string(), asset.browser_download_url.clone()))
     } else {
         None
     }
@@ -74,9 +68,7 @@ fn is_newer(latest: &str, current: &str) -> bool {
 }
 
 pub fn update_self(url: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
-        .build()?;
+    let client = reqwest::blocking::Client::builder().user_agent(USER_AGENT).build()?;
 
     let response = client.get(url).send()?;
     let bytes = response.bytes()?;
@@ -91,10 +83,10 @@ pub fn update_self(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path = entry.path()?.to_path_buf();
-        
+
         // Match binary name regardless of subfolders in the archive
-        let is_binary = path.file_name().and_then(|s| s.to_str()) == Some("trx") || 
-                       path.file_name().and_then(|s| s.to_str()) == Some("trx.exe");
+        let is_binary = path.file_name().and_then(|s| s.to_str()) == Some("trx")
+            || path.file_name().and_then(|s| s.to_str()) == Some("trx.exe");
 
         if is_binary {
             let target_path = temp_dir.path().join(path.file_name().unwrap());

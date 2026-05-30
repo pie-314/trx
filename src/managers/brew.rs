@@ -35,10 +35,7 @@ impl PackageManager for BrewManager {
         // up to max_search_results entries.
         let fetch_limit = max.max(50);
         let names: Vec<String> = {
-            let output = Command::new("brew")
-                .args(["search", "--formula", query])
-                .output()
-                .ok();
+            let output = Command::new("brew").args(["search", "--formula", query]).output().ok();
             match output {
                 Some(o) => String::from_utf8_lossy(&o.stdout)
                     .lines()
@@ -95,10 +92,7 @@ impl PackageManager for BrewManager {
     }
 
     fn get_installed(&self) -> HashSet<String> {
-        let output = Command::new("brew")
-            .args(["list", "--formula", "--versions"])
-            .output()
-            .ok();
+        let output = Command::new("brew").args(["list", "--formula", "--versions"]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -112,10 +106,7 @@ impl PackageManager for BrewManager {
     }
 
     fn get_installed_details(&self) -> Vec<Package> {
-        let output = Command::new("brew")
-            .args(["list", "--formula", "--versions"])
-            .output()
-            .ok();
+        let output = Command::new("brew").args(["list", "--formula", "--versions"]).output().ok();
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -210,12 +201,11 @@ impl PackageManager for BrewManager {
                 out.insert("Dependencies".into(), dep_list.join(", "));
             }
         }
-        if let Some(installed) = formula["installed"].as_array() {
-            if let Some(first) = installed.first() {
-                if let Some(installed_ver) = first["version"].as_str() {
-                    out.insert("Installed Version".into(), installed_ver.into());
-                }
-            }
+        if let Some(installed) = formula["installed"].as_array()
+            && let Some(first) = installed.first()
+            && let Some(installed_ver) = first["version"].as_str()
+        {
+            out.insert("Installed Version".into(), installed_ver.into());
         }
 
         // Update cache
@@ -309,10 +299,7 @@ fn fetch_brew_info_batch(names: &[String]) -> HashMap<String, (String, String)> 
     if let Some(formulae) = json["formulae"].as_array() {
         for formula in formulae {
             let name = formula["name"].as_str().unwrap_or("").to_string();
-            let version = formula["versions"]["stable"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
+            let version = formula["versions"]["stable"].as_str().unwrap_or("").to_string();
             let description = formula["desc"].as_str().unwrap_or("").to_string();
             if !name.is_empty() {
                 map.insert(name, (version, description));
