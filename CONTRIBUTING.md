@@ -60,6 +60,130 @@ src/
 
 ---
 
+# **2.5 Concurrency & Event Flow**
+
+TRX uses **OS threads** and **`std::sync::mpsc` channels** for all background work. There is no async runtime — every blocking call (search, package details, update checks) runs on a dedicated thread spawned from the main event loop.
+
+---
+
+### **Main loop and thread lifecycle**
+
+`main.rs` parses CLI flags first (`--version` / `--help` return immediately), then calls `color_eyre::install()`, initialises ratatui (alternate screen, raw mode, mouse capture), and creates a single `mpsc::channel::<(String, Vec<Package>)>` for search results:
+
+```rust
+let (result_tx, result_rx) = mpsc::channel();
+let app_result = App::new(result_tx.clone(), result_rx).run(&mut terminal);
+```
+
+`App::new()` spawns a background update-check thread (if `config.settings.auto_update_check` is enabled), loads configuration, and selects the system package manager.
+
+The core event loop in `App::run()` follows this pattern every iteration:
+
+1. If on the **Search** tab, call `check_and_execute_search()` (debounce check).
+2. Drain the `update_rx` channel for update-prompt responses.
+3. Drain the `result_rx` channel for search/list results (discarding stale entries).
+4. Drain the `details_rx` channel for package-detail responses.
+5. Draw the UI frame via `terminal.draw(|frame| draw_ui(frame, &mut self))`.
+6. Poll for keyboard input with a **10 ms timeout** (`event::poll(Duration::from_millis(10))`).
+
+On exit, `App::run()` returns `Result<Option<String>>`. If the `Option` contains an update URL, `main.rs` calls `updater::update_self(&url)` outside the TUI.
+
+---
+
+### **Input event flow: `input.rs` → `app.rs`**
+
+The `InputMode` enum in `input.rs` has two variants:
+
+- **`Normal`** — Navigation, tab switching, action commands. Keypresses are matched against configurable keybindings from `config.keys` via the `is_key()` helper, which maps `KeyCode` values (e.g. `KeyCode::Char('q')`) to user-configurable string values (e.g. `keys.quit`).
+- **`Editing`** — Search query or settings-field editing. Characters are inserted into `App.input` via `enter_char()`, which updates the string and sets two tracking fields:
+
+```rust
+self.last_input_time = Instant::now();
+self.pending_search = true;
+```
+
+When the loop calls `check_and_execute_search()`, it checks whether `last_input_time.elapsed() >= Duration::from_millis(debounce_ms)`. If the debounce period has passed, a worker thread is spawned to execute the search.
+
+---
+
+### **Channel dispatch: search, details, and update checks**
+
+Three `mpsc` channel pairs coordinate communication between the main loop and worker threads:
+
+| Channel | Direction | Payload |
+|---|---|---|
+| `result_tx` / `result_rx` | Thread → Main | `(String, Vec<Package>)` |
+| `details_tx` / `details_rx` | Thread → Main | `DetailsState` |
+| `update_tx` / `update_rx` | Thread → Main | `Option<(String, String)>` |
+
+**Search flow:** The main loop clones `Arc<Box<dyn PackageManager>>` and spawns a thread that calls `manager.search(&query)`. The thread sends the result tuple back on `result_tx`. The main loop drains `result_rx` with `try_recv()` and checks whether the string tag matches the current input — mismatched (stale) results from a previous query are silently discarded.
+
+**Installed / Updates tabs:** The same `result_tx/rx` pair is reused with sentinel key strings:
+- `"__INSTALLED__"` → results from `manager.get_installed_details()`
+- `"__UPDATES__"` → results from `manager.get_updates()`
+
+**Details flow:** When the selected row changes (arrow keys, Home/End, mouse click, or tab switch), `trigger_details_fetch()` spawns a thread that calls `manager.get_details(&pkg.name, &pkg.provider)` and sends a `DetailsState` enum ( `Empty` / `Loading` / `Success(...)` / `Error(...)` ) on `details_tx`.
+
+**Update-check guard:** An `Arc<AtomicBool>` field (`update_check_in_flight`) prevents overlapping manual update checks. `trigger_manual_update_check()` uses `compare_exchange(false, true, ...)` to atomically claim the slot; if a check is already in flight the call is a no-op. The spawned thread releases the guard with `store(false, Ordering::Release)` after completion.
+
+---
+
+### **Package manager calls from worker threads**
+
+The `PackageManager` trait requires `Send + Sync` so it can be shared across threads. The manager is stored as `Arc<Box<dyn PackageManager>>` in the `App` struct.
+
+- **Read operations** (search, details, installed, updates) run **entirely on worker threads** — they may make blocking system calls, network requests, or subprocess invocations.
+- **Write operations** (install, remove, update, system upgrade, refresh) are handled differently: they call `execute_external_command()` in `main.rs`, which **leaves the alternate screen**, runs the command via `std::process::Command`, prints the output, waits for the user to press Enter, and then restores the TUI.
+- **`CombinedManager`** (when multiple backends are active) delegates to all enabled managers. For `update_packages` it smart-partitions the package set by intersecting with each backend's installed set, so backends only receive packages they own.
+
+### **Sequence diagram**
+
+The following diagram traces a complete search + auto-details cycle:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Input as input.rs
+    participant Loop as app.rs (main loop)
+    participant Thread
+    participant PM as PackageManager
+
+    User->>Input: Type character
+    Input->>Loop: enter_char(c)
+    Note over Loop: Sets pending_search=true,<br/>last_input_time=now
+
+    loop Every poll cycle (~10ms)
+        Loop->>Loop: check_and_execute_search()
+        Note over Loop: Waits for debounce_ms to elapse
+
+        alt Debounce expired
+            Loop->>Thread: spawn(move || { manager.search(&q) })
+            Thread->>PM: search(&query)
+            PM-->>Thread: Vec<Package>
+            Thread-->>Loop: result_tx.send((query, packages))
+
+            Loop->>Loop: try_recv on result_rx
+            Note over Loop: Discards stale results<br/>(tag != current input)
+
+            Loop->>Thread: spawn details fetch
+            Thread->>PM: get_details(&name, &provider)
+            PM-->>Thread: DetailsState
+            Thread-->>Loop: details_tx.send(state)
+
+            Loop->>Loop: try_recv on details_rx
+            Loop->>User: draw_ui(frame)
+        end
+    end
+
+    Note over User,PM: Row selection change (Up / Down / click)
+    Loop->>Thread: spawn(move || { manager.get_details(...) })
+    Thread->>PM: get_details(...)
+    PM-->>Thread: DetailsState
+    Thread-->>Loop: details_tx.send(state)
+```
+
+---
+
 # **3. Contribution Areas**
 
 You can contribute in any of these domains:
