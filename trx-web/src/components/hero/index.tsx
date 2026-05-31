@@ -197,6 +197,7 @@ export function Hero() {
               style={{
                 display: "flex",
                 alignItems: "center",
+                flexWrap: "wrap",
                 background: "#101010",
                 borderRadius: 14,
                 padding: "13px 13px 13px 22px",
@@ -207,6 +208,7 @@ export function Hero() {
               <code
                 style={{
                   flex: 1,
+                  minWidth: 0,
                   fontFamily: "var(--font-geist-mono)",
                   fontSize: "13.5px",
                   color: "#DCDCDC",
