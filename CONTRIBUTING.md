@@ -144,42 +144,42 @@ The following diagram traces a complete search + auto-details cycle:
 sequenceDiagram
     participant User
     participant Input as input.rs
-    participant Loop as app.rs (main loop)
+    participant AppLoop as app.rs (main loop)
     participant Thread
     participant PM as PackageManager
 
     User->>Input: Type character
-    Input->>Loop: enter_char(c)
-    Note over Loop: Sets pending_search=true,<br/>last_input_time=now
+    Input->>AppLoop: enter_char(c)
+    Note over AppLoop: Sets pending_search=true,<br/>last_input_time=now
 
     loop Every poll cycle (~10ms)
-        Loop->>Loop: check_and_execute_search()
-        Note over Loop: Waits for debounce_ms to elapse
+        AppLoop->>AppLoop: check_and_execute_search()
+        Note over AppLoop: Waits for debounce_ms to elapse
 
         alt Debounce expired
-            Loop->>Thread: spawn(move || { manager.search(&q) })
+            AppLoop->>Thread: spawn(move || { manager.search(&q) })
             Thread->>PM: search(&query)
             PM-->>Thread: Vec<Package>
-            Thread-->>Loop: result_tx.send((query, packages))
+            Thread-->>AppLoop: result_tx.send((query, packages))
 
-            Loop->>Loop: try_recv on result_rx
-            Note over Loop: Discards stale results<br/>(tag != current input)
+            AppLoop->>AppLoop: try_recv on result_rx
+            Note over AppLoop: Discards stale results<br/>(tag != current input)
 
-            Loop->>Thread: spawn details fetch
+            AppLoop->>Thread: spawn details fetch
             Thread->>PM: get_details(&name, &provider)
             PM-->>Thread: DetailsState
-            Thread-->>Loop: details_tx.send(state)
+            Thread-->>AppLoop: details_tx.send(state)
 
-            Loop->>Loop: try_recv on details_rx
-            Loop->>User: draw_ui(frame)
+            AppLoop->>AppLoop: try_recv on details_rx
+            AppLoop->>User: draw_ui(frame)
         end
     end
 
     Note over User,PM: Row selection change (Up / Down / click)
-    Loop->>Thread: spawn(move || { manager.get_details(...) })
+    AppLoop->>Thread: spawn(move || { manager.get_details(...) })
     Thread->>PM: get_details(...)
     PM-->>Thread: DetailsState
-    Thread-->>Loop: details_tx.send(state)
+    Thread-->>AppLoop: details_tx.send(state)
 ```
 
 ---
