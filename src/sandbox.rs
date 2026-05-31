@@ -5,11 +5,7 @@ const BWRAP_WARNING: &str =
     "Warning: sandbox=true is set, but bubblewrap (bwrap) is not available on PATH.";
 
 pub fn startup_warning(sandbox_enabled: bool) -> Option<&'static str> {
-    if sandbox_enabled && !bwrap_available() {
-        Some(BWRAP_WARNING)
-    } else {
-        None
-    }
+    if sandbox_enabled && !bwrap_available() { Some(BWRAP_WARNING) } else { None }
 }
 
 pub fn command_for(cmd: &str, args: &[&str], sandbox_enabled: bool) -> (String, Vec<String>) {
@@ -87,11 +83,7 @@ mod tests {
         let separator = args.iter().position(|arg| arg == "--").unwrap();
         assert_eq!(
             &args[separator + 1..],
-            vec![
-                "apt".to_string(),
-                "install".to_string(),
-                "ripgrep".to_string()
-            ]
+            vec!["apt".to_string(), "install".to_string(), "ripgrep".to_string()]
         );
     }
 }
