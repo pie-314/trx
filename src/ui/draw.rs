@@ -386,6 +386,33 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     frame.render_widget(paragraph, area);
 }
 
+fn keyboard_hint(app: &App) -> String {
+    let keys = &app.config.keys;
+
+    match app.input_mode {
+        InputMode::Editing => match app.current_tab {
+            crate::ui::app::Tab::Search => {
+                format!("Esc to exit search mode  •  Enter to search  •  {} to quit", keys.quit)
+            }
+            crate::ui::app::Tab::Settings => {
+                format!("Esc to stop editing  •  Enter to save  •  {} to quit", keys.quit)
+            }
+            _ => format!("Esc to stop editing  •  Enter to submit  •  {} to quit", keys.quit),
+        },
+        InputMode::Normal => match app.current_tab {
+            crate::ui::app::Tab::Search => format!(
+                "Press '{}' for help  •  '{}' to search  •  '{}' to quit",
+                keys.help, keys.search_edit, keys.quit
+            ),
+            crate::ui::app::Tab::Settings => format!(
+                "Press '{}' for help  •  Enter/Space to edit  •  '{}' to quit",
+                keys.help, keys.quit
+            ),
+            _ => format!("Press '{}' for help  •  '{}' to quit", keys.help, keys.quit),
+        },
+    }
+}
+
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let secondary_color = app.config.get_color(&theme.text_secondary);
@@ -419,8 +446,8 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
         ),
         Span::raw(" | "),
         Span::styled(
-            "Press '?' for help ",
-            Style::default().fg(primary_color).add_modifier(Modifier::ITALIC),
+            keyboard_hint(app),
+            Style::default().fg(primary_color).add_modifier(Modifier::DIM),
         ),
     ]);
 
