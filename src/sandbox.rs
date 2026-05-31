@@ -41,10 +41,7 @@ pub fn build_package_command(
     sandbox_args.push(cmd.to_string());
     sandbox_args.extend(args.iter().map(|arg| (*arg).to_string()));
 
-    CommandSpec {
-        cmd: "bwrap".to_string(),
-        args: sandbox_args,
-    }
+    CommandSpec { cmd: "bwrap".to_string(), args: sandbox_args }
 }
 
 pub fn package_command(cmd: &str, args: &[&str]) -> CommandSpec {
@@ -106,7 +103,8 @@ mod tests {
 
     #[test]
     fn wraps_linux_package_command_when_enabled_and_available() {
-        let command = build_package_command("sudo", &["apt", "install", "ripgrep"], true, true, true);
+        let command =
+            build_package_command("sudo", &["apt", "install", "ripgrep"], true, true, true);
 
         assert_eq!(command.cmd, "bwrap");
         assert_eq!(

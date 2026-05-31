@@ -480,7 +480,7 @@ impl App {
     }
 
     fn next_spinner_type(&mut self) {
-        let types = ["Dots", "Bars", "Pulse", "Classic"];
+        let types = ["Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"];
         let current_pos =
             types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
         let next_pos = (current_pos + 1) % types.len();
@@ -490,7 +490,7 @@ impl App {
     }
 
     fn prev_spinner_type(&mut self) {
-        let types = ["Dots", "Bars", "Pulse", "Classic"];
+        let types = ["Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"];
         let current_pos =
             types.iter().position(|&t| t == self.config.settings.spinner_type).unwrap_or(0);
         let next_pos = if current_pos == 0 { types.len() - 1 } else { current_pos - 1 };
