@@ -1,6 +1,7 @@
 mod config;
 mod fuzzy;
 mod managers;
+mod sandbox;
 mod ui;
 mod updater;
 
@@ -62,6 +63,11 @@ fn main() -> Result<()> {
     }
 
     color_eyre::install()?;
+    let config = config::Config::load();
+    if let Some(warning) = sandbox::startup_warning(config.settings.sandbox) {
+        eprintln!("{}", warning);
+    }
+
     let mut terminal = init();
     execute!(std::io::stdout(), EnableMouseCapture)?;
     let (result_tx, result_rx) = mpsc::channel();
@@ -92,14 +98,35 @@ pub fn execute_external_command(
     cmd: &str,
     args: &[&str],
 ) -> Result<()> {
+    execute_external_command_inner(terminal, cmd, args, false)
+}
+
+pub fn execute_sandboxable_external_command(
+    terminal: &mut ratatui::DefaultTerminal,
+    cmd: &str,
+    args: &[&str],
+) -> Result<()> {
+    execute_external_command_inner(terminal, cmd, args, true)
+}
+
+fn execute_external_command_inner(
+    terminal: &mut ratatui::DefaultTerminal,
+    cmd: &str,
+    args: &[&str],
+    allow_sandbox: bool,
+) -> Result<()> {
     terminal::disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, Show, DisableMouseCapture)?;
 
+    let config = config::Config::load();
+    let (program, command_args) =
+        sandbox::command_for(cmd, args, allow_sandbox && config.settings.sandbox);
+
     println!("\n{}", "=".repeat(40));
-    println!(" RUNNING: {} {}", cmd, args.join(" "));
+    println!(" RUNNING: {} {}", program, command_args.join(" "));
     println!("{}\n", "=".repeat(40));
 
-    let status = std::process::Command::new(cmd).args(args).status();
+    let status = std::process::Command::new(&program).args(&command_args).status();
 
     println!("\n{}", "=".repeat(40));
     match status {

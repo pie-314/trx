@@ -13,6 +13,8 @@ pub struct Settings {
     pub enabled_managers: Vec<String>,
     pub border_style: String, // "Plain", "Rounded", "Double", "Thick"
     pub spinner_type: String, // "Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"
+    #[serde(default)]
+    pub sandbox: bool,
     /// Version the user explicitly skipped. Ignored while the same tag is
     /// latest; cleared from config when a genuinely newer release is detected,
     /// so the prompt resurfaces automatically for new updates.
@@ -78,6 +80,7 @@ impl Default for Config {
                 ],
                 border_style: "Rounded".to_string(),
                 spinner_type: "Dots".to_string(),
+                sandbox: false,
                 skipped_update_version: None,
             },
             keys: Keys {

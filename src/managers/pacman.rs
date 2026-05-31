@@ -1,5 +1,5 @@
 use super::Package;
-use crate::execute_external_command;
+use crate::{execute_external_command, execute_sandboxable_external_command};
 use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
 
@@ -71,7 +71,7 @@ pub fn pacman_install(
     args.extend(pure);
 
     let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
-    execute_external_command(
+    execute_sandboxable_external_command(
         terminal,
         "sudo",
         {
@@ -100,7 +100,7 @@ pub fn pacman_remove(
     args.extend(pure);
 
     let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
-    execute_external_command(
+    execute_sandboxable_external_command(
         terminal,
         "sudo",
         {
