@@ -1,9 +1,61 @@
 use crate::managers::{Package, PackageManager};
 use ratatui::DefaultTerminal;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
 pub struct AptManager;
+
+fn parse_search_line(query: &str, line: &str) -> Option<Package> {
+    let parts: Vec<&str> = line.splitn(2, " - ").collect();
+    if parts.is_empty() {
+        return None;
+    }
+
+    let name = parts[0].trim().to_string();
+    if name.is_empty() {
+        return None;
+    }
+
+    let description = parts.get(1).unwrap_or(&"").trim().to_string();
+    let score = crate::fuzzy::fuzzy_match(query, &name);
+
+    if score <= 0.01 {
+        return None;
+    }
+
+    Some(Package { provider: "apt".to_string(), name, version: String::new(), description, score })
+}
+
+fn parse_installed_detail_line(line: &str) -> Option<Package> {
+    let parts: Vec<&str> = line.split('\t').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+
+    Some(Package {
+        provider: "apt/local".to_string(),
+        name: parts[0].to_string(),
+        version: parts[1].to_string(),
+        description: parts.get(2).unwrap_or(&"").to_string(),
+        score: 1.0,
+    })
+}
+
+fn parse_update_line(line: &str) -> Option<Package> {
+    let parts: Vec<&str> = line.split('/').collect();
+    if parts.is_empty() || parts[0].is_empty() {
+        return None;
+    }
+
+    Some(Package {
+        provider: "apt/update".to_string(),
+        name: parts[0].to_string(),
+        version: "Update available".to_string(),
+        description: String::new(),
+        score: 1.0,
+    })
+}
 
 impl PackageManager for AptManager {
     fn name(&self) -> &str {
@@ -18,27 +70,8 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.splitn(2, " - ").collect();
-                    if !parts.is_empty() {
-                        let name = parts[0].trim().to_string();
-                        let desc = parts.get(1).unwrap_or(&"").trim().to_string();
-                        let score = crate::fuzzy::fuzzy_match(query, &name);
-                        Some(Package {
-                            provider: "apt".to_string(),
-                            name,
-                            version: "".to_string(),
-                            description: desc,
-                            score,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .filter(|p| p.score > 0.01)
-                .collect()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines.par_iter().filter_map(|line| parse_search_line(query, line)).collect()
         } else {
             Vec::new()
         }
@@ -63,23 +96,8 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.split('\t').collect();
-                    if parts.len() >= 2 {
-                        Some(Package {
-                            provider: "apt/local".to_string(),
-                            name: parts[0].to_string(),
-                            version: parts[1].to_string(),
-                            description: parts.get(2).unwrap_or(&"").to_string(),
-                            score: 1.0,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect()
+            let lines: Vec<&str> = stdout.lines().collect();
+            lines.par_iter().filter_map(|line| parse_installed_detail_line(line)).collect()
         } else {
             Vec::new()
         }
@@ -90,24 +108,8 @@ impl PackageManager for AptManager {
 
         if let Some(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout
-                .lines()
-                .skip(1)
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.split('/').collect();
-                    if !parts.is_empty() {
-                        Some(Package {
-                            provider: "apt/update".to_string(),
-                            name: parts[0].to_string(),
-                            version: "Update available".to_string(),
-                            description: "".to_string(),
-                            score: 1.0,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect()
+            let lines: Vec<&str> = stdout.lines().skip(1).collect();
+            lines.par_iter().filter_map(|line| parse_update_line(line)).collect()
         } else {
             Vec::new()
         }
@@ -190,5 +192,41 @@ impl PackageManager for AptManager {
     ) -> Result<(), Box<dyn std::error::Error>> {
         crate::execute_external_command(terminal, "sudo", &["apt", "update"])?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_apt_search_lines_including_empty_descriptions() {
+        let with_description = parse_search_line("curl", "curl - command line tool").unwrap();
+        assert_eq!(with_description.provider, "apt");
+        assert_eq!(with_description.name, "curl");
+        assert_eq!(with_description.description, "command line tool");
+
+        let without_description = parse_search_line("curl", "curl").unwrap();
+        assert_eq!(without_description.name, "curl");
+        assert_eq!(without_description.description, "");
+    }
+
+    #[test]
+    fn rejects_empty_apt_search_names() {
+        assert!(parse_search_line("curl", " - missing package").is_none());
+    }
+
+    #[test]
+    fn parses_apt_detail_and_update_lines() {
+        let detail = parse_installed_detail_line("curl\t8.5.0\ttransfer tool").unwrap();
+        assert_eq!(detail.provider, "apt/local");
+        assert_eq!(detail.name, "curl");
+        assert_eq!(detail.version, "8.5.0");
+        assert_eq!(detail.description, "transfer tool");
+
+        let update = parse_update_line("curl/stable 8.6.0 amd64 [upgradable]").unwrap();
+        assert_eq!(update.provider, "apt/update");
+        assert_eq!(update.name, "curl");
+        assert_eq!(update.version, "Update available");
     }
 }
