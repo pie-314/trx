@@ -713,18 +713,19 @@ impl App {
                                             if self.current_tab == Tab::Settings =>
                                         {
                                             let mgr_count = self.available_managers.len();
-                                            if self.settings_index == 6 + mgr_count {
+                                            if self.settings_index == 7 + mgr_count {
                                                 self.prev_theme();
-                                            } else if self.settings_index == 6 + mgr_count + 1 {
+                                            } else if self.settings_index == 7 + mgr_count + 1 {
                                                 self.prev_border_style();
-                                            } else if self.settings_index == 6 + mgr_count + 2 {
+                                            } else if self.settings_index == 7 + mgr_count + 2 {
                                                 self.prev_spinner_type();
                                             } else if self.settings_index == 4 {
                                                 self.prev_default_tab();
                                             } else if self.settings_index == 1
                                                 || self.settings_index == 2
-                                                || (self.settings_index >= 6
-                                                    && self.settings_index < 6 + mgr_count)
+                                                || self.settings_index == 6
+                                                || (self.settings_index >= 7
+                                                    && self.settings_index < 7 + mgr_count)
                                             {
                                                 self.handle_settings_toggle();
                                             }
@@ -733,18 +734,19 @@ impl App {
                                             if self.current_tab == Tab::Settings =>
                                         {
                                             let mgr_count = self.available_managers.len();
-                                            if self.settings_index == 6 + mgr_count {
+                                            if self.settings_index == 7 + mgr_count {
                                                 self.next_theme();
-                                            } else if self.settings_index == 6 + mgr_count + 1 {
+                                            } else if self.settings_index == 7 + mgr_count + 1 {
                                                 self.next_border_style();
-                                            } else if self.settings_index == 6 + mgr_count + 2 {
+                                            } else if self.settings_index == 7 + mgr_count + 2 {
                                                 self.next_spinner_type();
                                             } else if self.settings_index == 4 {
                                                 self.next_default_tab();
                                             } else if self.settings_index == 1
                                                 || self.settings_index == 2
-                                                || (self.settings_index >= 6
-                                                    && self.settings_index < 6 + mgr_count)
+                                                || self.settings_index == 6
+                                                || (self.settings_index >= 7
+                                                    && self.settings_index < 7 + mgr_count)
                                             {
                                                 self.handle_settings_toggle();
                                             }
@@ -763,9 +765,9 @@ impl App {
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
                                                 let max = if self.config.theme_name == "Custom" {
-                                                    14
+                                                    15
                                                 } else {
-                                                    8
+                                                    9
                                                 };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
@@ -838,9 +840,9 @@ impl App {
                 if self.current_tab == Tab::Settings {
                     let mgr_count = self.available_managers.len();
                     let max = if self.config.theme_name == "Custom" {
-                        5 + mgr_count + 6
+                        6 + mgr_count + 6
                     } else {
-                        5 + mgr_count
+                        6 + mgr_count
                     };
                     if self.settings_index < max {
                         self.settings_index += 1;
@@ -900,18 +902,18 @@ impl App {
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
 
-                    let idx = if (7..=12).contains(&r) {
+                    let idx = if (7..=13).contains(&r) {
                         Some(r - 7)
-                    } else if r >= 14 && r < 14 + mgr_count {
-                        Some(r - 14 + 6)
-                    } else if r == 15 + mgr_count {
-                        Some(6 + mgr_count)
+                    } else if r >= 15 && r < 15 + mgr_count {
+                        Some(r - 15 + 7)
                     } else if r == 16 + mgr_count {
                         Some(7 + mgr_count)
                     } else if r == 17 + mgr_count {
                         Some(8 + mgr_count)
-                    } else if r >= 19 + mgr_count && r < 25 + mgr_count {
-                        Some(r - (19 + mgr_count) + 7 + mgr_count)
+                    } else if r == 18 + mgr_count {
+                        Some(9 + mgr_count)
+                    } else if r >= 20 + mgr_count && r < 26 + mgr_count {
+                        Some(r - (20 + mgr_count) + 8 + mgr_count)
                     } else {
                         None
                     };
@@ -1004,17 +1006,23 @@ impl App {
                     Color::Cyan,
                 );
             }
-            i if i >= 6 && i < 6 + mgr_count => {
-                let mgr_name = self.available_managers[i - 6].clone();
+            6 => {
+                // Clear Cache
+                crate::managers::SEARCH_CACHE.lock().unwrap().clear();
+                crate::managers::DETAILS_CACHE.lock().unwrap().clear();
+                self.set_popup("Cache cleared successfully".to_string(), Color::Green);
+            }
+            i if i >= 7 && i < 7 + mgr_count => {
+                let mgr_name = self.available_managers[i - 7].clone();
                 self.toggle_manager(&mgr_name);
             }
-            i if i == 6 + mgr_count => {
+            i if i == 7 + mgr_count => {
                 self.next_theme();
             }
-            i if i == 6 + mgr_count + 1 => {
+            i if i == 7 + mgr_count + 1 => {
                 self.next_border_style();
             }
-            i if i == 6 + mgr_count + 2 => {
+            i if i == 7 + mgr_count + 2 => {
                 self.next_spinner_type();
             }
             _ => {
@@ -1024,12 +1032,12 @@ impl App {
                     3 => self.config.settings.search_debounce_ms.to_string(),
                     4 => self.config.settings.default_tab.clone(),
                     5 => self.config.settings.max_search_results.to_string(),
-                    i if i >= 7 + mgr_count
-                        && i <= 12 + mgr_count
+                    i if i >= 8 + mgr_count
+                        && i <= 13 + mgr_count
                         && self.config.theme_name == "Custom" =>
                     {
                         let theme = self.config.custom_theme.as_ref().unwrap();
-                        match i - (7 + mgr_count) {
+                        match i - (8 + mgr_count) {
                             0 => theme.border_color.clone(),
                             1 => theme.highlight_color.clone(),
                             2 => theme.success_color.clone(),
@@ -1042,8 +1050,8 @@ impl App {
                     _ => String::new(),
                 };
                 if !self.input.is_empty()
-                    || (self.settings_index >= 7 + mgr_count
-                        && self.settings_index <= 12 + mgr_count)
+                    || (self.settings_index >= 8 + mgr_count
+                        && self.settings_index <= 13 + mgr_count)
                 {
                     self.input_mode = InputMode::Editing;
                     self.character_index = self.input.chars().count();
@@ -1078,9 +1086,9 @@ impl App {
                     saved = true;
                 }
             }
-            i if i >= 7 + mgr_count && i <= 12 + mgr_count => {
+            i if i >= 8 + mgr_count && i <= 13 + mgr_count => {
                 if let Some(ref mut theme) = self.config.custom_theme {
-                    match i - (7 + mgr_count) {
+                    match i - (8 + mgr_count) {
                         0 => {
                             theme.border_color = val;
                         }
