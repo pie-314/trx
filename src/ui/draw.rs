@@ -108,7 +108,7 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
         draw_update_prompt(frame, app, &theme_colors);
     }
 
-    if let Some(toast) = app.toast_queue.first() {
+    if let Some(toast) = app.toasts.first() {
         let color = match toast.severity {
             ToastSeverity::Success => Color::Green,
             ToastSeverity::Warning => Color::Yellow,
@@ -116,13 +116,7 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             ToastSeverity::Info => Color::Cyan,
         };
 
-        draw_popup(
-            frame,
-            &toast.message,
-            color,
-            &theme_colors,
-            &app.config.settings.border_style,
-        );
+        draw_popup(frame, &toast.message, color, &theme_colors, &app.config.settings.border_style);
     }
 }
 
@@ -241,7 +235,7 @@ fn draw_popup(
     _theme: &crate::config::Theme,
     border_style: &str,
 ) {
-    let area = centered_rect(30, 10, frame.area());
+    let area = Rect { x: frame.area().width.saturating_sub(35), y: 1, width: 30, height: 3 };
     frame.render_widget(Clear, area);
     let border_type = get_border_type(border_style);
 
