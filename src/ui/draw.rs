@@ -6,7 +6,8 @@ use ratatui::{
     widgets::{Block, BorderType, Clear, List, ListItem, Paragraph, Wrap},
 };
 
-use crate::ui::{app::App, input::InputMode};
+use crate::ui::app::{App, ToastSeverity};
+use crate::ui::input::InputMode;
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::vertical([
@@ -107,8 +108,21 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
         draw_update_prompt(frame, app, &theme_colors);
     }
 
-    if let Some((msg, color)) = &app.popup_message {
-        draw_popup(frame, msg, *color, &theme_colors, &app.config.settings.border_style);
+    if let Some(toast) = app.toast_queue.first() {
+        let color = match toast.severity {
+            ToastSeverity::Success => Color::Green,
+            ToastSeverity::Warning => Color::Yellow,
+            ToastSeverity::Error => Color::Red,
+            ToastSeverity::Info => Color::Cyan,
+        };
+
+        draw_popup(
+            frame,
+            &toast.message,
+            color,
+            &theme_colors,
+            &app.config.settings.border_style,
+        );
     }
 }
 

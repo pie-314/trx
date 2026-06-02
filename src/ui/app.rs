@@ -31,6 +31,19 @@ pub enum DetailsState {
     Success(std::collections::HashMap<String, String>),
     Error(String),
 }
+#[derive(Debug, Clone)]
+pub enum ToastSeverity {
+    Success,
+    Warning,
+    Error,
+    Info,
+}
+#[derive(Debug, Clone)]
+pub struct ToastMessage {
+    pub message: String,
+    pub severity: ToastSeverity,
+    pub expires_at: Instant,
+}
 
 pub struct App {
     pub input: String,
@@ -56,7 +69,7 @@ pub struct App {
     pub settings_index: usize,
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
-    pub popup_message: Option<(String, Color)>, // (message, color)
+    pub toast_queue: Vec<ToastMessage>,
     result_tx: Sender<(String, Vec<Package>)>,
     result_rx: Receiver<(String, Vec<Package>)>,
     details_tx: Sender<DetailsState>,
@@ -68,7 +81,6 @@ pub struct App {
     last_input_time: Instant,
     pending_search: bool,
     last_search_query: String,
-    pub popup_timer: Option<Instant>,
 }
 
 impl App {
@@ -127,8 +139,7 @@ impl App {
             details_scroll: 0,
             character_index: 0,
             available_managers,
-            popup_message: None,
-            popup_timer: None,
+            toast_queue: Vec::new(),
             result_tx,
             result_rx,
             details_tx,
@@ -149,8 +160,18 @@ impl App {
     }
 
     pub fn set_popup(&mut self, msg: String, color: Color) {
-        self.popup_message = Some((msg, color));
-        self.popup_timer = Some(Instant::now());
+        let severity = match color {
+            Color::Green => ToastSeverity::Success,
+            Color::Yellow => ToastSeverity::Warning,
+            Color::Red => ToastSeverity::Error,
+            _ => ToastSeverity::Info,
+        };
+
+        self.toast_queue.push(ToastMessage {
+            message: msg,
+            severity,
+            expires_at: Instant::now() + Duration::from_secs(3),
+        });
     }
 
     /// Spawn a fresh update-check thread and funnel the result back through
@@ -573,12 +594,11 @@ impl App {
                 self.details_state = state;
             }
 
-            if let Some(timer) = self.popup_timer
-                && timer.elapsed() > Duration::from_secs(3)
-            {
-                self.popup_message = None;
-                self.popup_timer = None;
-            }
+            let now = Instant::now();
+
+            self.toast_queue.retain(|toast| {
+                toast.expires_at > now
+            });
 
             terminal.draw(|frame| draw_ui(frame, &mut self))?;
 
