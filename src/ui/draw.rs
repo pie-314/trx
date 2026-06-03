@@ -202,7 +202,11 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Th
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let border_type = get_border_type(&app.config.settings.border_style);
 
-    let tab_titles = vec!["Search", "Installed", "Updates", "Settings"];
+    let tab_titles = match app.config.settings.tab_icon_style.as_str() {
+        "NerdFont" => vec!["  Search", "  Installed", "󰑐  Updates", "  Settings"],
+        "None" => vec!["Search", "Installed", "Updates", "Settings"],
+        _ => vec!["🔍 Search", "📦 Installed", "🔄 Updates", "⚙️ Settings"],
+    };
     let tabs = ratatui::widgets::Tabs::new(tab_titles)
         .block(
             Block::bordered()
@@ -356,7 +360,8 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     draw_setting!(current_idx, "Theme Preset", &app.config.theme_name, false);
     draw_setting!(current_idx + 1, "Border Style", &app.config.settings.border_style, false);
     draw_setting!(current_idx + 2, "Spinner Type", &app.config.settings.spinner_type, false);
-    current_idx += 3;
+    draw_setting!(current_idx + 3, "Tab Icon Style", &app.config.settings.tab_icon_style, false);
+    current_idx += 4;
 
     if app.config.theme_name == "Custom" {
         settings_lines.push(Line::from(""));

@@ -13,10 +13,16 @@ pub struct Settings {
     pub enabled_managers: Vec<String>,
     pub border_style: String, // "Plain", "Rounded", "Double", "Thick"
     pub spinner_type: String, // "Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"
+    #[serde(default = "default_tab_icon_style")]
+    pub tab_icon_style: String, // "Unicode", "NerdFont", "None"
     /// Version the user explicitly skipped. Ignored while the same tag is
     /// latest; cleared from config when a genuinely newer release is detected,
     /// so the prompt resurfaces automatically for new updates.
     pub skipped_update_version: Option<String>,
+}
+
+fn default_tab_icon_style() -> String {
+    "Unicode".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,6 +84,7 @@ impl Default for Config {
                 ],
                 border_style: "Rounded".to_string(),
                 spinner_type: "Dots".to_string(),
+                tab_icon_style: "Unicode".to_string(),
                 skipped_update_version: None,
             },
             keys: Keys {

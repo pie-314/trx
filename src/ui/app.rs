@@ -499,6 +499,26 @@ impl App {
         self.set_popup(format!("Spinner: {}", self.config.settings.spinner_type), Color::Cyan);
     }
 
+    fn next_tab_icon_style(&mut self) {
+        let styles = ["Unicode", "NerdFont", "None"];
+        let current_pos =
+            styles.iter().position(|&s| s == self.config.settings.tab_icon_style).unwrap_or(0);
+        let next_pos = (current_pos + 1) % styles.len();
+        self.config.settings.tab_icon_style = styles[next_pos].to_string();
+        let _ = self.config.save();
+        self.set_popup(format!("Tab Icons: {}", self.config.settings.tab_icon_style), Color::Cyan);
+    }
+
+    fn prev_tab_icon_style(&mut self) {
+        let styles = ["Unicode", "NerdFont", "None"];
+        let current_pos =
+            styles.iter().position(|&s| s == self.config.settings.tab_icon_style).unwrap_or(0);
+        let next_pos = if current_pos == 0 { styles.len() - 1 } else { current_pos - 1 };
+        self.config.settings.tab_icon_style = styles[next_pos].to_string();
+        let _ = self.config.save();
+        self.set_popup(format!("Tab Icons: {}", self.config.settings.tab_icon_style), Color::Cyan);
+    }
+
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<Option<String>> {
         loop {
             if let Tab::Search = self.current_tab {
@@ -719,6 +739,8 @@ impl App {
                                                 self.prev_border_style();
                                             } else if self.settings_index == 6 + mgr_count + 2 {
                                                 self.prev_spinner_type();
+                                            } else if self.settings_index == 6 + mgr_count + 3 {
+                                                self.prev_tab_icon_style();
                                             } else if self.settings_index == 4 {
                                                 self.prev_default_tab();
                                             } else if self.settings_index == 1
@@ -739,6 +761,8 @@ impl App {
                                                 self.next_border_style();
                                             } else if self.settings_index == 6 + mgr_count + 2 {
                                                 self.next_spinner_type();
+                                            } else if self.settings_index == 6 + mgr_count + 3 {
+                                                self.next_tab_icon_style();
                                             } else if self.settings_index == 4 {
                                                 self.next_default_tab();
                                             } else if self.settings_index == 1
@@ -762,10 +786,11 @@ impl App {
                                         }
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
+                                                let mgr_count = self.available_managers.len();
                                                 let max = if self.config.theme_name == "Custom" {
-                                                    14
+                                                    6 + mgr_count + 9
                                                 } else {
-                                                    8
+                                                    6 + mgr_count + 3
                                                 };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
@@ -838,9 +863,9 @@ impl App {
                 if self.current_tab == Tab::Settings {
                     let mgr_count = self.available_managers.len();
                     let max = if self.config.theme_name == "Custom" {
-                        5 + mgr_count + 6
+                        6 + mgr_count + 9
                     } else {
-                        5 + mgr_count
+                        6 + mgr_count + 3
                     };
                     if self.settings_index < max {
                         self.settings_index += 1;
@@ -874,10 +899,14 @@ impl App {
                 // Tab switching
                 if mouse_event.row >= 1 && mouse_event.row <= 3 {
                     let col = mouse_event.column.saturating_sub(1);
-                    let tab_titles = ["Search", "Installed", "Updates", "Settings"];
+                    let tab_titles = match self.config.settings.tab_icon_style.as_str() {
+                        "NerdFont" => vec!["  Search", "  Installed", "󰑐  Updates", "  Settings"],
+                        "None" => vec!["Search", "Installed", "Updates", "Settings"],
+                        _ => vec!["🔍 Search", "📦 Installed", "🔄 Updates", "⚙️ Settings"],
+                    };
                     let mut current_x = 0;
                     for (i, title) in tab_titles.iter().enumerate() {
-                        let width = title.len() as u16;
+                        let width = ratatui::text::Span::raw(*title).width() as u16;
                         if col >= current_x && col < current_x + width {
                             let new_tab = match i {
                                 0 => Tab::Search,
@@ -910,8 +939,10 @@ impl App {
                         Some(7 + mgr_count)
                     } else if r == 17 + mgr_count {
                         Some(8 + mgr_count)
-                    } else if r >= 19 + mgr_count && r < 25 + mgr_count {
-                        Some(r - (19 + mgr_count) + 7 + mgr_count)
+                    } else if r == 18 + mgr_count {
+                        Some(9 + mgr_count)
+                    } else if r >= 20 + mgr_count && r < 26 + mgr_count {
+                        Some(r - (20 + mgr_count) + 10 + mgr_count)
                     } else {
                         None
                     };
@@ -1017,6 +1048,9 @@ impl App {
             i if i == 6 + mgr_count + 2 => {
                 self.next_spinner_type();
             }
+            i if i == 6 + mgr_count + 3 => {
+                self.next_tab_icon_style();
+            }
             _ => {
                 // If it's a string/color field, enter editing mode
                 self.input = match self.settings_index {
@@ -1024,12 +1058,12 @@ impl App {
                     3 => self.config.settings.search_debounce_ms.to_string(),
                     4 => self.config.settings.default_tab.clone(),
                     5 => self.config.settings.max_search_results.to_string(),
-                    i if i >= 7 + mgr_count
-                        && i <= 12 + mgr_count
+                    i if i >= 8 + mgr_count
+                        && i <= 13 + mgr_count
                         && self.config.theme_name == "Custom" =>
                     {
                         let theme = self.config.custom_theme.as_ref().unwrap();
-                        match i - (7 + mgr_count) {
+                        match i - (8 + mgr_count) {
                             0 => theme.border_color.clone(),
                             1 => theme.highlight_color.clone(),
                             2 => theme.success_color.clone(),
@@ -1042,8 +1076,8 @@ impl App {
                     _ => String::new(),
                 };
                 if !self.input.is_empty()
-                    || (self.settings_index >= 7 + mgr_count
-                        && self.settings_index <= 12 + mgr_count)
+                    || (self.settings_index >= 8 + mgr_count
+                        && self.settings_index <= 13 + mgr_count)
                 {
                     self.input_mode = InputMode::Editing;
                     self.character_index = self.input.chars().count();
@@ -1078,9 +1112,9 @@ impl App {
                     saved = true;
                 }
             }
-            i if i >= 7 + mgr_count && i <= 12 + mgr_count => {
+            i if i >= 8 + mgr_count && i <= 13 + mgr_count => {
                 if let Some(ref mut theme) = self.config.custom_theme {
-                    match i - (7 + mgr_count) {
+                    match i - (8 + mgr_count) {
                         0 => {
                             theme.border_color = val;
                         }
