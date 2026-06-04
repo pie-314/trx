@@ -158,11 +158,7 @@ impl App {
         app
     }
 
-    pub fn push_toast(
-        &mut self,
-        msg: String,
-        severity: ToastSeverity,
-    ) {
+    pub fn push_toast(&mut self, msg: String, severity: ToastSeverity) {
         self.toasts.clear();
 
         self.toasts.push(ToastMessage {
