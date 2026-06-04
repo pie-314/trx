@@ -1,4 +1,5 @@
 mod config;
+mod diagnostics;
 mod fuzzy;
 mod managers;
 mod ui;

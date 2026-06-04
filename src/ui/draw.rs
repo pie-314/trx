@@ -107,6 +107,10 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
         draw_update_prompt(frame, app, &theme_colors);
     }
 
+    if app.diagnostics_results.is_some() {
+        draw_diagnostics_popup(frame, app, &theme_colors);
+    }
+
     if let Some((msg, color)) = &app.popup_message {
         draw_popup(frame, msg, *color, &theme_colors, &app.config.settings.border_style);
     }
@@ -241,6 +245,53 @@ fn draw_popup(
     frame.render_widget(paragraph, area);
 }
 
+fn draw_diagnostics_popup(frame: &mut Frame, app: &App, theme: &crate::config::Theme) {
+    let area = centered_rect(85, 80, frame.area());
+    frame.render_widget(Clear, area);
+
+    let border_type = get_border_type(&app.config.settings.border_style);
+    let border_color = app.config.get_color(&theme.border_color);
+    let highlight_color = app.config.get_color(&theme.highlight_color);
+    let primary_color = app.config.get_color(&theme.text_primary);
+    let secondary_color = app.config.get_color(&theme.text_secondary);
+
+    let mut lines = vec![
+        Line::from(vec![Span::styled(
+            "Tool                 Found     Version / Path",
+            Style::default().fg(highlight_color).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(""),
+    ];
+
+    if let Some(results) = &app.diagnostics_results {
+        for entry in results {
+            let found = if entry.found { "Yes" } else { "No" };
+            lines.push(Line::from(vec![
+                Span::styled(format!("{:<20}", entry.tool), Style::default().fg(primary_color)),
+                Span::styled(format!("{:<10}", found), Style::default().fg(secondary_color)),
+                Span::styled(entry.version.clone(), Style::default().fg(primary_color)),
+            ]));
+        }
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "Press Esc, Enter, or q to close",
+        Style::default().fg(secondary_color),
+    )));
+
+    let paragraph = Paragraph::new(lines)
+        .block(
+            Block::bordered()
+                .title("System Diagnostics")
+                .border_type(border_type)
+                .border_style(Style::default().fg(border_color)),
+        )
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, area);
+}
+
 fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let border_color = app.config.get_color(&theme.border_color);
@@ -356,6 +407,7 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     draw_setting!(current_idx, "Theme Preset", &app.config.theme_name, false);
     draw_setting!(current_idx + 1, "Border Style", &app.config.settings.border_style, false);
     draw_setting!(current_idx + 2, "Spinner Type", &app.config.settings.spinner_type, false);
+
     current_idx += 3;
 
     if app.config.theme_name == "Custom" {
@@ -364,6 +416,7 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
             "--- Custom Colors ---",
             Style::default().fg(highlight_color).add_modifier(Modifier::BOLD),
         )));
+
         if let Some(ref ct) = app.config.custom_theme {
             draw_setting!(current_idx, "Border Color", &ct.border_color, false);
             draw_setting!(current_idx + 1, "Highlight Color", &ct.highlight_color, false);
@@ -372,7 +425,16 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
             draw_setting!(current_idx + 4, "Text Primary", &ct.text_primary, false);
             draw_setting!(current_idx + 5, "Text Secondary", &ct.text_secondary, false);
         }
+
+        current_idx += 6;
     }
+
+    settings_lines.push(Line::from(""));
+    settings_lines.push(Line::from(Span::styled(
+        "--- Diagnostics ---",
+        Style::default().fg(highlight_color).add_modifier(Modifier::BOLD),
+    )));
+    draw_setting!(current_idx, "Run Diagnostics", "Press Enter", true);
 
     let paragraph = Paragraph::new(settings_lines)
         .block(
