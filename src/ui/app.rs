@@ -165,10 +165,10 @@ impl App {
     ) {
         self.toasts.clear();
 
-        self.toasts.push(Toast {
-            msg,
+        self.toasts.push(ToastMessage {
+            message: msg,
             severity,
-            created_at: Instant::now(),
+            expires_at: Instant::now() + Duration::from_secs(3),
         });
     }
 
