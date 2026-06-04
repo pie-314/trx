@@ -158,11 +158,17 @@ impl App {
         app
     }
 
-    pub fn push_toast(&mut self, msg: String, severity: ToastSeverity) {
-        self.toasts.push(ToastMessage {
-            message: msg,
+    pub fn push_toast(
+        &mut self,
+        msg: String,
+        severity: ToastSeverity,
+    ) {
+        self.toasts.clear();
+
+        self.toasts.push(Toast {
+            msg,
             severity,
-            expires_at: Instant::now() + Duration::from_secs(3),
+            created_at: Instant::now(),
         });
     }
 
