@@ -1043,7 +1043,7 @@ impl App {
                 // Clear Cache
                 crate::managers::SEARCH_CACHE.lock().unwrap().clear();
                 crate::managers::DETAILS_CACHE.lock().unwrap().clear();
-                self.set_popup("Cache cleared successfully".to_string(), Color::Green);
+                self.push_toast("Cache cleared successfully".to_string(), ToastSeverity::Success);
             }
             i if i >= 7 && i < 7 + mgr_count => {
                 let mgr_name = self.available_managers[i - 7].clone();
