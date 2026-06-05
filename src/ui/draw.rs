@@ -378,9 +378,10 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     );
     draw_setting!(4, "Default Tab", &app.config.settings.default_tab, false);
     draw_setting!(5, "Max Results", &app.config.settings.max_search_results.to_string(), false);
+    draw_setting!(6, "Clear Cache", "Press Enter/Space", false);
     settings_lines.push(Line::from(""));
 
-    let mut current_idx = 6;
+    let mut current_idx = 7;
 
     // Managers
     settings_lines.push(Line::from(Span::styled(

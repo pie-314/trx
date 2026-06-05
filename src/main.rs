@@ -2,6 +2,7 @@ mod config;
 mod diagnostics;
 mod fuzzy;
 mod managers;
+mod sandbox;
 mod ui;
 mod updater;
 
@@ -63,6 +64,8 @@ fn main() -> Result<()> {
     }
 
     color_eyre::install()?;
+    let config = config::Config::load();
+    sandbox::warn_if_misconfigured(&config);
     let mut terminal = init();
     execute!(std::io::stdout(), EnableMouseCapture)?;
     let (result_tx, result_rx) = mpsc::channel();
@@ -120,4 +123,14 @@ pub fn execute_external_command(
     terminal.clear()?;
 
     Ok(())
+}
+
+pub fn execute_package_command(
+    terminal: &mut ratatui::DefaultTerminal,
+    cmd: &str,
+    args: &[&str],
+) -> Result<()> {
+    let command = sandbox::package_command(cmd, args);
+    let args_ref: Vec<&str> = command.args.iter().map(String::as_str).collect();
+    execute_external_command(terminal, &command.cmd, &args_ref)
 }
