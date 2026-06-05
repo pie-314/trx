@@ -147,7 +147,7 @@ impl PackageManager for BrewManager {
                     let name = parts.next()?.trim().to_string();
                     let version_info = parts.next().unwrap_or("").trim().to_string();
                     Some(Package {
-                        provider: "brew".to_string(),
+                        provider: "brew/update".to_string(),
                         name,
                         version: version_info,
                         description: String::new(),
@@ -220,10 +220,17 @@ impl PackageManager for BrewManager {
     fn install(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
         let mut args = vec!["install"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "brew", &args)?;
         Ok(())
@@ -232,10 +239,17 @@ impl PackageManager for BrewManager {
     fn remove(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
         let mut args = vec!["uninstall"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "brew", &args)?;
         Ok(())
@@ -244,13 +258,17 @@ impl PackageManager for BrewManager {
     fn update_packages(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if pkgs.is_empty() {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
             return Ok(());
         }
         let mut args = vec!["upgrade"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "brew", &args)?;
         Ok(())

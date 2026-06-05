@@ -140,10 +140,17 @@ impl PackageManager for AptManager {
     fn install(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
         let mut args = vec!["apt", "install", "-y"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "sudo", &args)?;
         Ok(())
@@ -152,10 +159,17 @@ impl PackageManager for AptManager {
     fn remove(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
         let mut args = vec!["apt", "remove", "-y"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "sudo", &args)?;
         Ok(())
@@ -164,13 +178,17 @@ impl PackageManager for AptManager {
     fn update_packages(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if pkgs.is_empty() {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
             return Ok(());
         }
         let mut args = vec!["apt", "install", "--only-upgrade", "-y"];
-        let pkg_refs: Vec<&str> = pkgs.iter().map(|s| s.as_str()).collect();
+        let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
         crate::execute_external_command(terminal, "sudo", &args)?;
         Ok(())

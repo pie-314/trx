@@ -39,7 +39,7 @@ pub struct App {
     pub current_tab: Tab,
     pub packages: Vec<Package>,
     pub checked: Vec<bool>,
-    pub selected_names: HashSet<String>,
+    pub selected_names: HashSet<(String, String)>,
     pub installed_packages: HashSet<String>,
     pub selected: usize,
     pub list_state: ListState,
@@ -273,9 +273,9 @@ impl App {
         }
 
         let mut to_remove = HashSet::new();
-        for name in &self.selected_names {
+        for (name, provider) in &self.selected_names {
             if self.installed_packages.contains(name) {
-                to_remove.insert(name.clone());
+                to_remove.insert((name.clone(), provider.clone()));
             }
         }
 
@@ -291,15 +291,15 @@ impl App {
         terminal: &mut DefaultTerminal,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Prefer explicitly checked packages; fall back to the highlighted item.
-        let mut to_update: HashSet<String> = self.selected_names.clone();
+        let mut to_update: HashSet<(String, String)> = self.selected_names.clone();
         if to_update.is_empty()
             && let Some(pkg) = self.packages.get(self.selected)
         {
-            to_update.insert(pkg.name.clone());
+            to_update.insert((pkg.name.clone(), pkg.provider.clone()));
         }
         // Only update packages that are actually installed; avoids invoking
         // backend-specific upgrade commands on packages the system doesn't own.
-        to_update.retain(|name| self.installed_packages.contains(name));
+        to_update.retain(|(name, _)| self.installed_packages.contains(name));
         if !to_update.is_empty() {
             self.manager.update_packages(terminal, &to_update)?;
         }
@@ -545,7 +545,7 @@ impl App {
                     self.checked = self
                         .packages
                         .iter()
-                        .map(|p| self.selected_names.contains(&p.name))
+                        .map(|p| self.selected_names.contains(&(p.name.clone(), p.provider.clone())))
                         .collect();
 
                     self.selected = 0;
@@ -659,18 +659,21 @@ impl App {
                                 } else if is_key(key.code, &keys.install) {
                                     let _ = self.run_command(terminal);
                                     self.installed_packages = self.manager.get_installed();
+                                    self.selected_names.retain(|(name, _)| !self.installed_packages.contains(name));
                                     if let Tab::Installed = self.current_tab {
                                         self.reset_tab_state();
                                     }
                                 } else if is_key(key.code, &keys.remove) {
                                     let _ = self.run_remove_command(terminal);
                                     self.installed_packages = self.manager.get_installed();
+                                    self.selected_names.retain(|(name, _)| self.installed_packages.contains(name));
                                     if let Tab::Installed = self.current_tab {
                                         self.reset_tab_state();
                                     }
                                 } else if is_key(key.code, &keys.update) {
                                     let _ = self.run_update_command(terminal);
                                     self.installed_packages = self.manager.get_installed();
+                                    self.selected_names.retain(|(_, provider)| !provider.contains("/update"));
                                     // Reset both Updates and Installed tabs so their lists
                                     // reflect the post-update state immediately.
                                     match self.current_tab {
@@ -696,12 +699,13 @@ impl App {
                                     } else if !self.packages.is_empty() {
                                         let pkg = &self.packages[self.selected];
                                         let name = pkg.name.clone();
+                                        let provider = pkg.provider.clone();
                                         let is_checked = !self.checked[self.selected];
                                         self.checked[self.selected] = is_checked;
                                         if is_checked {
-                                            self.selected_names.insert(name);
+                                            self.selected_names.insert((name, provider));
                                         } else {
-                                            self.selected_names.remove(&name);
+                                            self.selected_names.remove(&(name, provider));
                                         }
                                     }
                                 } else if is_key(key.code, &keys.search_edit) {
@@ -874,7 +878,36 @@ impl App {
                 // Tab switching
                 if mouse_event.row >= 1 && mouse_event.row <= 3 {
                     let col = mouse_event.column.saturating_sub(1);
-                    let tab_titles = ["Search", "Installed", "Updates", "Settings"];
+                    
+                    let search_count = self.selected_names.iter()
+                        .filter(|(name, provider)| !provider.contains("/update") && !self.installed_packages.contains(name))
+                        .count();
+                    let installed_count = self.selected_names.iter()
+                        .filter(|(name, provider)| !provider.contains("/update") && self.installed_packages.contains(name))
+                        .count();
+                    let updates_count = self.selected_names.iter()
+                        .filter(|(_, provider)| provider.contains("/update"))
+                        .count();
+
+                    let search_title = if search_count > 0 {
+                        format!("Search [{}]", search_count)
+                    } else {
+                        "Search".to_string()
+                    };
+
+                    let installed_title = if installed_count > 0 {
+                        format!("Installed [{}]", installed_count)
+                    } else {
+                        "Installed".to_string()
+                    };
+
+                    let updates_title = if updates_count > 0 {
+                        format!("Updates [{}]", updates_count)
+                    } else {
+                        "Updates".to_string()
+                    };
+
+                    let tab_titles = [search_title, installed_title, updates_title, "Settings".to_string()];
                     let mut current_x = 0;
                     for (i, title) in tab_titles.iter().enumerate() {
                         let width = title.len() as u16;
@@ -941,12 +974,13 @@ impl App {
 
                                 if mouse_event.column < 5 {
                                     let name = self.packages[real_idx].name.clone();
+                                    let provider = self.packages[real_idx].provider.clone();
                                     let is_checked = !self.checked[real_idx];
                                     self.checked[real_idx] = is_checked;
                                     if is_checked {
-                                        self.selected_names.insert(name);
+                                        self.selected_names.insert((name, provider));
                                     } else {
-                                        self.selected_names.remove(&name);
+                                        self.selected_names.remove(&(name, provider));
                                     }
                                 }
                             }
