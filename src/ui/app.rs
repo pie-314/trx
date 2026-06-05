@@ -69,6 +69,9 @@ pub struct App {
     pending_search: bool,
     last_search_query: String,
     pub popup_timer: Option<Instant>,
+    pub query_history: Vec<String>,
+    pub history_index: Option<usize>,
+    pub in_progress_input: String,
 }
 
 impl App {
@@ -102,6 +105,26 @@ impl App {
             "Updates" => Tab::Updates,
             _ => Tab::Search,
         };
+
+        let mut query_history = Vec::new();
+        if let Some(base_dirs) = directories::BaseDirs::new() {
+            let history_path = base_dirs
+                .home_dir()
+                .join(".local")
+                .join("state")
+                .join("trx")
+                .join("search_history");
+            if history_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(history_path) {
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if !trimmed.is_empty() {
+                            query_history.push(trimmed.to_string());
+                        }
+                    }
+                }
+            }
+        }
 
         let mut app = Self {
             input: String::new(),
@@ -139,6 +162,9 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
+            query_history,
+            history_index: None,
+            in_progress_input: String::new(),
         };
 
         if app.current_tab != Tab::Search {
@@ -208,6 +234,7 @@ impl App {
 
         self.last_input_time = Instant::now();
         self.pending_search = true;
+        self.history_index = None;
     }
 
     fn delete_char(&mut self) {
@@ -220,6 +247,7 @@ impl App {
 
             self.last_input_time = Instant::now();
             self.pending_search = true;
+            self.history_index = None;
         }
     }
 
@@ -555,6 +583,25 @@ impl App {
                     if !self.packages.is_empty() {
                         self.list_state.select(Some(0));
                         self.trigger_details_fetch();
+
+                        if let Tab::Search = self.current_tab {
+                            let query = q.clone();
+                            if !query.is_empty() {
+                                self.query_history.retain(|h| h != &query);
+                                self.query_history.push(query);
+                                if let Some(base_dirs) = directories::BaseDirs::new() {
+                                    let history_dir = base_dirs
+                                        .home_dir()
+                                        .join(".local")
+                                        .join("state")
+                                        .join("trx");
+                                    let history_path = history_dir.join("search_history");
+                                    let _ = std::fs::create_dir_all(&history_dir);
+                                    let content = self.query_history.join("\n") + "\n";
+                                    let _ = std::fs::write(history_path, content);
+                                }
+                            }
+                        }
                     } else {
                         self.list_state.select(None);
                         self.details_state = DetailsState::Empty;
@@ -801,6 +848,7 @@ impl App {
                                         self.handle_settings_save();
                                     }
                                     self.input_mode = InputMode::Normal;
+                                    self.history_index = None;
                                     if self.current_tab == Tab::Search {
                                         self.pending_search = true;
                                         self.last_input_time = Instant::now();
@@ -812,6 +860,42 @@ impl App {
                                 KeyCode::Right => self.move_cursor_right(),
                                 KeyCode::Esc => {
                                     self.input_mode = InputMode::Normal;
+                                    self.history_index = None;
+                                }
+                                KeyCode::Up if self.current_tab == Tab::Search => {
+                                    if !self.query_history.is_empty() {
+                                        if let Some(idx) = self.history_index {
+                                            if idx > 0 {
+                                                self.history_index = Some(idx - 1);
+                                                self.input = self.query_history[idx - 1].clone();
+                                                self.character_index = self.input.chars().count();
+                                            }
+                                        } else {
+                                            self.in_progress_input = self.input.clone();
+                                            self.history_index = Some(self.query_history.len() - 1);
+                                            self.input = self.query_history[self.query_history.len() - 1].clone();
+                                            self.character_index = self.input.chars().count();
+                                        }
+                                        self.last_input_time = Instant::now();
+                                        self.pending_search = true;
+                                    }
+                                }
+                                KeyCode::Down if self.current_tab == Tab::Search => {
+                                    if !self.query_history.is_empty() {
+                                        if let Some(idx) = self.history_index {
+                                            if idx + 1 < self.query_history.len() {
+                                                self.history_index = Some(idx + 1);
+                                                self.input = self.query_history[idx + 1].clone();
+                                                self.character_index = self.input.chars().count();
+                                            } else {
+                                                self.history_index = None;
+                                                self.input = self.in_progress_input.clone();
+                                                self.character_index = self.input.chars().count();
+                                            }
+                                            self.last_input_time = Instant::now();
+                                            self.pending_search = true;
+                                        }
+                                    }
                                 }
                                 _ => {}
                             },
