@@ -4,7 +4,6 @@ use color_eyre::Result;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
-    style::Color,
     widgets::ListState,
 };
 use std::collections::HashSet;
@@ -31,6 +30,19 @@ pub enum DetailsState {
     Success(std::collections::HashMap<String, String>),
     Error(String),
 }
+#[derive(Debug, Clone)]
+pub enum ToastSeverity {
+    Success,
+    Warning,
+    Error,
+    Info,
+}
+#[derive(Debug, Clone)]
+pub struct ToastMessage {
+    pub message: String,
+    pub severity: ToastSeverity,
+    pub expires_at: Instant,
+}
 
 pub struct App {
     pub input: String,
@@ -56,7 +68,7 @@ pub struct App {
     pub settings_index: usize,
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
-    pub popup_message: Option<(String, Color)>, // (message, color)
+    pub toasts: Vec<ToastMessage>,
     result_tx: Sender<(String, Vec<Package>)>,
     result_rx: Receiver<(String, Vec<Package>)>,
     details_tx: Sender<DetailsState>,
@@ -68,7 +80,6 @@ pub struct App {
     last_input_time: Instant,
     pending_search: bool,
     last_search_query: String,
-    pub popup_timer: Option<Instant>,
 }
 
 impl App {
@@ -127,8 +138,7 @@ impl App {
             details_scroll: 0,
             character_index: 0,
             available_managers,
-            popup_message: None,
-            popup_timer: None,
+            toasts: Vec::new(),
             result_tx,
             result_rx,
             details_tx,
@@ -148,9 +158,14 @@ impl App {
         app
     }
 
-    pub fn set_popup(&mut self, msg: String, color: Color) {
-        self.popup_message = Some((msg, color));
-        self.popup_timer = Some(Instant::now());
+    pub fn push_toast(&mut self, msg: String, severity: ToastSeverity) {
+        self.toasts.clear();
+
+        self.toasts.push(ToastMessage {
+            message: msg,
+            severity,
+            expires_at: Instant::now() + Duration::from_secs(3),
+        });
     }
 
     /// Spawn a fresh update-check thread and funnel the result back through
@@ -397,13 +412,16 @@ impl App {
         if self.config.settings.enabled_managers.contains(&name.to_string()) {
             if self.config.settings.enabled_managers.len() > 1 {
                 self.config.settings.enabled_managers.retain(|m| m != name);
-                self.set_popup(format!("Disabled {}", name), Color::Yellow);
+                self.push_toast(format!("Disabled {}", name), ToastSeverity::Warning);
             } else {
-                self.set_popup("Must have at least one manager enabled".to_string(), Color::Red);
+                self.push_toast(
+                    "Must have at least one manager enabled".to_string(),
+                    ToastSeverity::Error,
+                );
             }
         } else {
             self.config.settings.enabled_managers.push(name.to_string());
-            self.set_popup(format!("Enabled {}", name), Color::Green);
+            self.push_toast(format!("Enabled {}", name), ToastSeverity::Success);
         }
         let _ = self.config.save();
         // Re-initialize manager
@@ -424,7 +442,7 @@ impl App {
             self.config.custom_theme = Some(self.config.theme.clone());
         }
         let _ = self.config.save();
-        self.set_popup(format!("Theme: {}", self.config.theme_name), Color::Cyan);
+        self.push_toast(format!("Theme: {}", self.config.theme_name), ToastSeverity::Info);
     }
 
     fn prev_theme(&mut self) {
@@ -436,7 +454,7 @@ impl App {
             self.config.custom_theme = Some(self.config.theme.clone());
         }
         let _ = self.config.save();
-        self.set_popup(format!("Theme: {}", self.config.theme_name), Color::Cyan);
+        self.push_toast(format!("Theme: {}", self.config.theme_name), ToastSeverity::Info);
     }
 
     fn next_default_tab(&mut self) {
@@ -446,7 +464,10 @@ impl App {
         let next_pos = (current_pos + 1) % tabs.len();
         self.config.settings.default_tab = tabs[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Default Tab: {}", self.config.settings.default_tab), Color::Cyan);
+        self.push_toast(
+            format!("Default Tab: {}", self.config.settings.default_tab),
+            ToastSeverity::Info,
+        );
     }
 
     fn prev_default_tab(&mut self) {
@@ -456,7 +477,10 @@ impl App {
         let next_pos = if current_pos == 0 { tabs.len() - 1 } else { current_pos - 1 };
         self.config.settings.default_tab = tabs[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Default Tab: {}", self.config.settings.default_tab), Color::Cyan);
+        self.push_toast(
+            format!("Default Tab: {}", self.config.settings.default_tab),
+            ToastSeverity::Info,
+        );
     }
 
     fn next_border_style(&mut self) {
@@ -466,7 +490,10 @@ impl App {
         let next_pos = (current_pos + 1) % styles.len();
         self.config.settings.border_style = styles[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Border Style: {}", self.config.settings.border_style), Color::Cyan);
+        self.push_toast(
+            format!("Border Style: {}", self.config.settings.border_style),
+            ToastSeverity::Info,
+        );
     }
 
     fn prev_border_style(&mut self) {
@@ -476,7 +503,10 @@ impl App {
         let next_pos = if current_pos == 0 { styles.len() - 1 } else { current_pos - 1 };
         self.config.settings.border_style = styles[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Border Style: {}", self.config.settings.border_style), Color::Cyan);
+        self.push_toast(
+            format!("Border Style: {}", self.config.settings.border_style),
+            ToastSeverity::Info,
+        );
     }
 
     fn next_spinner_type(&mut self) {
@@ -486,7 +516,10 @@ impl App {
         let next_pos = (current_pos + 1) % types.len();
         self.config.settings.spinner_type = types[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Spinner: {}", self.config.settings.spinner_type), Color::Cyan);
+        self.push_toast(
+            format!("Spinner: {}", self.config.settings.spinner_type),
+            ToastSeverity::Info,
+        );
     }
 
     fn prev_spinner_type(&mut self) {
@@ -496,7 +529,10 @@ impl App {
         let next_pos = if current_pos == 0 { types.len() - 1 } else { current_pos - 1 };
         self.config.settings.spinner_type = types[next_pos].to_string();
         let _ = self.config.save();
-        self.set_popup(format!("Spinner: {}", self.config.settings.spinner_type), Color::Cyan);
+        self.push_toast(
+            format!("Spinner: {}", self.config.settings.spinner_type),
+            ToastSeverity::Info,
+        );
     }
 
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<Option<String>> {
@@ -573,12 +609,9 @@ impl App {
                 self.details_state = state;
             }
 
-            if let Some(timer) = self.popup_timer
-                && timer.elapsed() > Duration::from_secs(3)
-            {
-                self.popup_message = None;
-                self.popup_timer = None;
-            }
+            let now = Instant::now();
+
+            self.toasts.retain(|toast| toast.expires_at > now);
 
             terminal.draw(|frame| draw_ui(frame, &mut self))?;
 
@@ -992,25 +1025,25 @@ impl App {
                 // Auto Update Check
                 self.config.settings.auto_update_check = !self.config.settings.auto_update_check;
                 let _ = self.config.save();
-                self.set_popup(
+                self.push_toast(
                     format!("Auto Update Check: {}", self.config.settings.auto_update_check),
-                    Color::Cyan,
+                    ToastSeverity::Info,
                 );
             }
             2 => {
                 // Auto Cleanup
                 self.config.settings.auto_cleanup = !self.config.settings.auto_cleanup;
                 let _ = self.config.save();
-                self.set_popup(
+                self.push_toast(
                     format!("Auto Cleanup: {}", self.config.settings.auto_cleanup),
-                    Color::Cyan,
+                    ToastSeverity::Info,
                 );
             }
             6 => {
                 // Clear Cache
                 crate::managers::SEARCH_CACHE.lock().unwrap().clear();
                 crate::managers::DETAILS_CACHE.lock().unwrap().clear();
-                self.set_popup("Cache cleared successfully".to_string(), Color::Green);
+                self.push_toast("Cache cleared successfully".to_string(), ToastSeverity::Success);
             }
             i if i >= 7 && i < 7 + mgr_count => {
                 let mgr_name = self.available_managers[i - 7].clone();
@@ -1117,9 +1150,9 @@ impl App {
 
         if saved {
             let _ = self.config.save();
-            self.set_popup("Settings saved".to_string(), Color::Green);
+            self.push_toast("Settings saved".to_string(), ToastSeverity::Success);
         } else {
-            self.set_popup("Invalid input".to_string(), Color::Red);
+            self.push_toast("Invalid input".to_string(), ToastSeverity::Error);
         }
     }
 }
