@@ -33,6 +33,7 @@ pub enum DetailsState {
 }
 
 pub struct App {
+    pub diagnostics_results: Option<Vec<crate::diagnostics::DiagnosticEntry>>,
     pub input: String,
     pub character_index: usize,
     pub input_mode: InputMode,
@@ -104,6 +105,7 @@ impl App {
         };
 
         let mut app = Self {
+            diagnostics_results: None,
             input: String::new(),
             input_mode: InputMode::Normal,
             current_tab,
@@ -479,6 +481,17 @@ impl App {
         self.set_popup(format!("Border Style: {}", self.config.settings.border_style), Color::Cyan);
     }
 
+    fn diagnostics_settings_index(&self) -> usize {
+        let mgr_count = self.available_managers.len();
+        let mut index = 6 + mgr_count + 3;
+
+        if self.config.theme_name == "Custom" {
+            index += 6;
+        }
+
+        index
+    }
+
     fn next_spinner_type(&mut self) {
         let types = ["Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"];
         let current_pos =
@@ -612,6 +625,16 @@ impl App {
                                     _ => {}
                                 }
                             }
+                            continue;
+                        }
+
+                        if self.diagnostics_results.is_some()
+                            && matches!(
+                                key.code,
+                                KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q')
+                            )
+                        {
+                            self.diagnostics_results = None;
                             continue;
                         }
 
@@ -764,11 +787,7 @@ impl App {
                                         }
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
-                                                let max = if self.config.theme_name == "Custom" {
-                                                    15
-                                                } else {
-                                                    9
-                                                };
+                                                let max = self.diagnostics_settings_index();
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
                                                 }
@@ -838,12 +857,7 @@ impl App {
         match mouse_event.kind {
             event::MouseEventKind::ScrollDown => {
                 if self.current_tab == Tab::Settings {
-                    let mgr_count = self.available_managers.len();
-                    let max = if self.config.theme_name == "Custom" {
-                        6 + mgr_count + 6
-                    } else {
-                        6 + mgr_count
-                    };
+                    let max = self.diagnostics_settings_index();
                     if self.settings_index < max {
                         self.settings_index += 1;
                     }
@@ -987,6 +1001,10 @@ impl App {
 
     fn handle_settings_toggle(&mut self) {
         let mgr_count = self.available_managers.len();
+        if self.settings_index == self.diagnostics_settings_index() {
+            self.diagnostics_results = Some(crate::diagnostics::run_diagnostics());
+            return;
+        }
         match self.settings_index {
             1 => {
                 // Auto Update Check
