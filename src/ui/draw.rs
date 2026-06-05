@@ -6,8 +6,10 @@ use ratatui::{
     widgets::{Block, BorderType, Clear, List, ListItem, Paragraph, Wrap},
 };
 
-use crate::ui::app::{App, ToastSeverity};
-use crate::ui::input::InputMode;
+use crate::ui::{
+    app::{App, Tab, ToastSeverity},
+    input::InputMode,
+};
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::vertical([
@@ -395,6 +397,39 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     frame.render_widget(paragraph, area);
 }
 
+fn keyboard_hint(app: &App) -> String {
+    keyboard_hint_text(app.input_mode, app.current_tab, &app.config.keys)
+}
+
+fn keyboard_hint_text(
+    input_mode: InputMode,
+    current_tab: Tab,
+    keys: &crate::config::Keys,
+) -> String {
+    match input_mode {
+        InputMode::Editing => match current_tab {
+            Tab::Search => {
+                format!("Esc to exit search mode  •  Enter to search  •  {} to quit", keys.quit)
+            }
+            Tab::Settings => {
+                format!("Esc to stop editing  •  Enter to save  •  {} to quit", keys.quit)
+            }
+            _ => format!("Esc to stop editing  •  Enter to submit  •  {} to quit", keys.quit),
+        },
+        InputMode::Normal => match current_tab {
+            Tab::Search => format!(
+                "Press '{}' for help  •  '{}' to search  •  '{}' to quit",
+                keys.help, keys.search_edit, keys.quit
+            ),
+            Tab::Settings => format!(
+                "Press '{}' for help  •  Enter/Space to edit  •  '{}' to quit",
+                keys.help, keys.quit
+            ),
+            _ => format!("Press '{}' for help  •  '{}' to quit", keys.help, keys.quit),
+        },
+    }
+}
+
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let secondary_color = app.config.get_color(&theme.text_secondary);
@@ -428,8 +463,8 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
         ),
         Span::raw(" | "),
         Span::styled(
-            "Press '?' for help ",
-            Style::default().fg(primary_color).add_modifier(Modifier::ITALIC),
+            keyboard_hint(app),
+            Style::default().fg(primary_color).add_modifier(Modifier::DIM),
         ),
     ]);
 
@@ -732,4 +767,27 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
             .wrap(Wrap { trim: true }),
         area,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{InputMode, Tab, keyboard_hint_text};
+
+    fn keys() -> crate::config::Keys {
+        crate::config::Config::default().keys
+    }
+
+    #[test]
+    fn normal_search_hint_includes_help_search_and_quit() {
+        let hint = keyboard_hint_text(InputMode::Normal, Tab::Search, &keys());
+
+        assert_eq!(hint, "Press '?' for help  •  'e' to search  •  'q' to quit");
+    }
+
+    #[test]
+    fn editing_settings_hint_is_contextual() {
+        let hint = keyboard_hint_text(InputMode::Editing, Tab::Settings, &keys());
+
+        assert_eq!(hint, "Esc to stop editing  •  Enter to save  •  q to quit");
+    }
 }
