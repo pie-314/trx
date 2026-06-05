@@ -900,7 +900,9 @@ impl App {
                 if mouse_event.row >= 1 && mouse_event.row <= 3 {
                     let col = mouse_event.column.saturating_sub(1);
                     let tab_titles = match self.config.settings.tab_icon_style.as_str() {
-                        "NerdFont" => vec!["  Search", "  Installed", "󰑐  Updates", "  Settings"],
+                        "NerdFont" => {
+                            vec!["  Search", "  Installed", "󰑐  Updates", "  Settings"]
+                        }
                         "None" => vec!["Search", "Installed", "Updates", "Settings"],
                         _ => vec!["🔍 Search", "📦 Installed", "🔄 Updates", "⚙️ Settings"],
                     };
