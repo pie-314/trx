@@ -202,7 +202,41 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Th
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let border_type = get_border_type(&app.config.settings.border_style);
 
-    let tab_titles = vec!["Search", "Installed", "Updates", "Settings"];
+    let search_count = app.selected_names.iter()
+        .filter(|(name, provider)| !provider.contains("/update") && !app.installed_packages.contains(name))
+        .count();
+    let installed_count = app.selected_names.iter()
+        .filter(|(name, provider)| !provider.contains("/update") && app.installed_packages.contains(name))
+        .count();
+    let updates_count = app.selected_names.iter()
+        .filter(|(_, provider)| provider.contains("/update"))
+        .count();
+
+    let search_title = if search_count > 0 {
+        format!("Search [{}]", search_count)
+    } else {
+        "Search".to_string()
+    };
+
+    let installed_title = if installed_count > 0 {
+        format!("Installed [{}]", installed_count)
+    } else {
+        "Installed".to_string()
+    };
+
+    let updates_title = if updates_count > 0 {
+        format!("Updates [{}]", updates_count)
+    } else {
+        "Updates".to_string()
+    };
+
+    let tab_titles = vec![
+        search_title,
+        installed_title,
+        updates_title,
+        "Settings".to_string(),
+    ];
+
     let tabs = ratatui::widgets::Tabs::new(tab_titles)
         .block(
             Block::bordered()

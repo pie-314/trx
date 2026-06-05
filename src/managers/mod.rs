@@ -27,17 +27,17 @@ pub trait PackageManager: Send + Sync {
     fn install(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>>;
     fn remove(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>>;
     fn update_packages(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>>;
     fn system_upgrade(
         &self,
@@ -93,10 +93,7 @@ impl PackageManager for CombinedManager {
 
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>> {
         for m in &self.managers {
-            // Check if this manager's name/prefix matches the provider
-            if provider.to_lowercase().contains(&m.name().to_lowercase())
-                || m.name().to_lowercase().contains(&provider.to_lowercase())
-            {
+            if manager_handles_provider(m.name(), provider) {
                 return m.get_details(pkg, provider);
             }
         }
@@ -112,12 +109,17 @@ impl PackageManager for CombinedManager {
     fn install(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
-            // This is tricky; we'd need to know which package belongs to which manager.
-            // For now, let's assume the manager's internal logic handles its own packages.
-            m.install(terminal, pkgs)?;
+            let manager_pkgs: HashSet<(String, String)> = pkgs
+                .iter()
+                .filter(|(_, provider)| manager_handles_provider(m.name(), provider))
+                .cloned()
+                .collect();
+            if !manager_pkgs.is_empty() {
+                m.install(terminal, &manager_pkgs)?;
+            }
         }
         Ok(())
     }
@@ -125,10 +127,17 @@ impl PackageManager for CombinedManager {
     fn remove(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         for m in &self.managers {
-            m.remove(terminal, pkgs)?;
+            let manager_pkgs: HashSet<(String, String)> = pkgs
+                .iter()
+                .filter(|(_, provider)| manager_handles_provider(m.name(), provider))
+                .cloned()
+                .collect();
+            if !manager_pkgs.is_empty() {
+                m.remove(terminal, &manager_pkgs)?;
+            }
         }
         Ok(())
     }
@@ -136,15 +145,14 @@ impl PackageManager for CombinedManager {
     fn update_packages(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Partition `pkgs` by manager: only send a package to the backend that
-        // owns it (determined by intersecting with each manager's installed set).
-        // This prevents backends from attempting to upgrade packages they don't manage.
         for m in &self.managers {
-            let installed = m.get_installed();
-            let manager_pkgs: HashSet<String> =
-                pkgs.iter().filter(|p| installed.contains(*p)).cloned().collect();
+            let manager_pkgs: HashSet<(String, String)> = pkgs
+                .iter()
+                .filter(|(_, provider)| manager_handles_provider(m.name(), provider))
+                .cloned()
+                .collect();
             if !manager_pkgs.is_empty() {
                 m.update_packages(terminal, &manager_pkgs)?;
             }
@@ -268,3 +276,18 @@ pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> 
 
     res
 }
+
+pub fn manager_handles_provider(manager_name: &str, provider: &str) -> bool {
+    let m_lower = manager_name.to_lowercase();
+    let p_lower = provider.to_lowercase();
+    if p_lower.contains("pacman") || p_lower.contains("aur") || p_lower.contains("yay") {
+        m_lower.contains("arch") || m_lower.contains("pacman") || m_lower.contains("yay")
+    } else if p_lower.contains("brew") || p_lower.contains("homebrew") {
+        m_lower.contains("brew")
+    } else if p_lower.contains("apt") {
+        m_lower.contains("apt") || m_lower.contains("debian") || m_lower.contains("ubuntu")
+    } else {
+        p_lower.contains(&m_lower) || m_lower.contains(&p_lower)
+    }
+}
+

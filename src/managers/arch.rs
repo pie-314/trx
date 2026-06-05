@@ -103,15 +103,22 @@ impl PackageManager for ArchManager {
     fn install(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
         if !self.aur_helper.is_empty() {
             // yay (or configured AUR helper) can transparently install both
             // official-repo and AUR packages; aur_install strips any "aur/" prefix.
-            yay::aur_install(terminal, pkgs, &self.aur_helper)?;
+            yay::aur_install(terminal, &names, &self.aur_helper)?;
         } else {
             // No AUR helper available — install via pacman only.
-            pacman::pacman_install(terminal, pkgs)?;
+            pacman::pacman_install(terminal, &names)?;
         }
         Ok(())
     }
@@ -119,27 +126,38 @@ impl PackageManager for ArchManager {
     fn remove(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        pacman::pacman_remove(terminal, pkgs)
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return Ok(());
+        }
+        pacman::pacman_remove(terminal, &names)
     }
 
     fn update_packages(
         &self,
         terminal: &mut DefaultTerminal,
-        pkgs: &HashSet<String>,
+        pkgs: &HashSet<(String, String)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if pkgs.is_empty() {
+        let names: HashSet<String> = pkgs.iter()
+            .filter(|(_, provider)| super::manager_handles_provider(self.name(), provider))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
             return Ok(());
         }
         if !self.aur_helper.is_empty() {
             // When an AUR helper is available, route everything through it —
             // it handles both official-repo and AUR packages transparently.
             // aur_install already strips any "aur/" prefix before invoking the helper.
-            yay::aur_install(terminal, pkgs, &self.aur_helper)?;
+            yay::aur_install(terminal, &names, &self.aur_helper)?;
         } else {
             // No AUR helper; treat all selected packages as official-repo.
-            pacman::pacman_install(terminal, pkgs)?;
+            pacman::pacman_install(terminal, &names)?;
         }
         Ok(())
     }
