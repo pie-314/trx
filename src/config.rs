@@ -108,6 +108,27 @@ impl Default for Config {
     }
 }
 
+impl Keys {
+    /// Mutates a keybinding string field inside the struct dynamically based on its text action name.
+    pub fn update_action_key(&mut self, action_name: &str, new_key_str: String) {
+        match action_name {
+            "quit" => self.quit = new_key_str,
+            "install" => self.install = new_key_str,
+            "remove" => self.remove = new_key_str,
+            "update" => self.update = new_key_str,
+            "search_edit" => self.search_edit = new_key_str,
+            "toggle_select" => self.toggle_select = new_key_str,
+            "tab_next" => self.tab_next = new_key_str,
+            "tab_prev" => self.tab_prev = new_key_str,
+            "system_upgrade" => self.system_upgrade = new_key_str,
+            "refresh_db" => self.refresh_db = new_key_str,
+            "help" => self.help = new_key_str,
+            "check_update" => self.check_update = new_key_str,
+            _ => {}
+        }
+    }
+}
+
 impl Config {
     pub fn load() -> Self {
         if let Some(proj_dirs) = ProjectDirs::from("", "", "trx") {

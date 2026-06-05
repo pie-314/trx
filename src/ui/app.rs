@@ -53,6 +53,7 @@ pub struct App {
     pub spinner_tick: u8,
     pub manager: Arc<Box<dyn managers::PackageManager>>,
     pub config: crate::config::Config,
+    pub selected_key_action: Option<String>,
     pub settings_index: usize,
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
@@ -123,6 +124,7 @@ impl App {
             spinner_tick: 0,
             manager,
             config,
+            selected_key_action: None,
             settings_index: 0,
             details_scroll: 0,
             character_index: 0,
@@ -616,6 +618,39 @@ impl App {
                         }
 
                         match self.input_mode {
+                            InputMode::Rebinding if key.kind == KeyEventKind::Press => {
+                                match key.code {
+                                    KeyCode::Esc => {
+                                        self.selected_key_action = None;
+                                        self.input_mode = InputMode::Normal;
+                                    }
+                                    KeyCode::Char(c) => {
+                                        if let Some(ref action) = self.selected_key_action{
+                                            let new_key_str = c.to_string();
+                                            match action.as_str() {
+                                                "quit" => self.config.keys.quit = new_key_str,
+                                                "install" => self.config.keys.install = new_key_str,
+                                                "remove" => self.config.keys.remove = new_key_str,
+                                                "update" => self.config.keys.update = new_key_str,
+                                                "search_edit" => self.config.keys.search_edit = new_key_str,
+                                                "toggle_select" => self.config.keys.toggle_select = new_key_str,
+                                                "tab_next" => self.config.keys.tab_next = new_key_str,
+                                                "tab_prev" => self.config.keys.tab_prev = new_key_str,
+                                                "system_upgrade" => self.config.keys.system_upgrade = new_key_str,
+                                                "refresh_db" => self.config.keys.refresh_db = new_key_str,
+                                                "help" => self.config.keys.help = new_key_str,
+                                                "check_update" => self.config.keys.check_update = new_key_str,
+                                                _ => {}
+                                            }
+                                            let _ = self.config.save();
+                                            self.set_popup(format!("Bound [{}] to '{}'", action, c), Color::Green);
+                                        }
+                                        self.selected_key_action = None;
+                                        self.input_mode = InputMode::Normal;
+                                    }
+                                    _ => {} 
+                                }
+                            }
                             InputMode::Normal if key.kind == KeyEventKind::Press => {
                                 let keys = &self.config.keys;
 
@@ -763,9 +798,9 @@ impl App {
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
                                                 let max = if self.config.theme_name == "Custom" {
-                                                    14
+                                                    14+11
                                                 } else {
-                                                    8
+                                                    8+11
                                                 };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
@@ -815,6 +850,32 @@ impl App {
                                 }
                                 _ => {}
                             },
+                            InputMode::Rebinding if key.kind == KeyEventKind::Press => {
+                                if key.code == KeyCode::Esc{
+                                    self.input_mode = InputMode::Normal;
+                                    self.selected_key_action = None;
+                                    continue;
+                                }
+                                let incoming_key_string = match key.code{
+                                    KeyCode::Char(c) => c.to_string(),
+                                    KeyCode::Tab => "Tab".to_string(),
+                                    KeyCode::BackTab => "BackTab".to_string(),
+                                    KeyCode::Enter => "Enter".to_string(),
+                                    KeyCode::F(num) => format!("F{}",num),
+                                    _ => continue, 
+                                };
+                                if let Some(ref action_to_rebind) = self.selected_key_action{
+                                    self.config.keys.update_action_key(action_to_rebind,incoming_key_string);
+                                    if let Err(e) = self.config.save(){
+                                        self.set_popup(format!("Save Failed: {}",e),Color::Red);
+                                    } 
+                                    else{
+                                        self.set_popup("Keybinding updated successfully!".to_string(),Color::Green);
+                                    }
+                                }
+                                self.selected_key_action =None;
+                                self.input_mode = InputMode::Normal;
+                            }
 
                             _ => {}
                         }
@@ -838,9 +899,9 @@ impl App {
                 if self.current_tab == Tab::Settings {
                     let mgr_count = self.available_managers.len();
                     let max = if self.config.theme_name == "Custom" {
-                        5 + mgr_count + 6
+                        5 + mgr_count + 6+11
                     } else {
-                        5 + mgr_count
+                        5 + mgr_count+11
                     };
                     if self.settings_index < max {
                         self.settings_index += 1;
@@ -985,6 +1046,11 @@ impl App {
 
     fn handle_settings_toggle(&mut self) {
         let mgr_count = self.available_managers.len();
+        if let Some(action_name) = self.get_selected_keybinding_action_name() {
+            self.selected_key_action = Some(action_name);
+            self.input_mode = InputMode::Rebinding;
+            return;
+        }
         match self.settings_index {
             1 => {
                 // Auto Update Check
@@ -1053,6 +1119,9 @@ impl App {
     }
 
     fn handle_settings_save(&mut self) {
+        if self.get_selected_keybinding_action_name().is_some() {
+            return;
+        }
         let val = self.input.trim().to_string();
         let mgr_count = self.available_managers.len();
         let mut saved = false;
@@ -1107,11 +1176,36 @@ impl App {
             _ => {}
         }
 
-        if saved {
+        if saved{
             let _ = self.config.save();
             self.set_popup("Settings saved".to_string(), Color::Green);
-        } else {
+        } 
+        else{
             self.set_popup("Invalid input".to_string(), Color::Red);
+        }
+    }
+    pub fn get_selected_keybinding_action_name(&self) -> Option<String> {
+        let mgr_count = self.available_managers.len();
+        let baseline_start = 6 + mgr_count + 3; 
+        if self.settings_index >= baseline_start && self.settings_index < baseline_start + 12 {
+            match self.settings_index - baseline_start{
+                0 => Some("quit".to_string()),
+                1 => Some("install".to_string()),
+                2 => Some("remove".to_string()),
+                3 => Some("update".to_string()),
+                4 => Some("search_edit".to_string()),
+                5 => Some("toggle_select".to_string()),
+                6 => Some("tab_next".to_string()),
+                7 => Some("tab_prev".to_string()),
+                8 => Some("system_upgrade".to_string()),
+                9 => Some("refresh_db".to_string()),
+                10 => Some("help".to_string()),
+                11 => Some("check_update".to_string()),
+                _ => None,
+            }
+        } 
+        else{
+            None
         }
     }
 }

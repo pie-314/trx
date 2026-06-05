@@ -2,4 +2,5 @@
 pub enum InputMode {
     Normal,
     Editing,
+    Rebinding,
 }
