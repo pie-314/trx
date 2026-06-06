@@ -443,19 +443,29 @@ fn draw_search_input(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     let border_color = app.config.get_color(&theme.border_color);
     let border_type = get_border_type(&app.config.settings.border_style);
     let spinners = get_spinner(&app.config.settings.spinner_type);
-    let spinner = if app.loading { spinners[(app.spinner_tick as usize / 5) % spinners.len()] } else { "" };
+
+    let spinner =
+        if app.loading { spinners[(app.spinner_tick as usize / 5) % spinners.len()] } else { "" };
+
     let search_title = format!(" Search {} ", spinner);
-    let is_search_active = matches!(app.input_mode, InputMode::Editing);
-    let search_border_color = if is_search_active { highlight_color } else { border_color };
     let input = Paragraph::new(app.input.as_str())
         .style(match app.input_mode {
             InputMode::Editing => Style::default().fg(highlight_color),
             _ => Style::default(),
         })
-        .block(Block::bordered().title(search_title).border_type(border_type).border_style(Style::default().fg(search_border_color)));
+        .block(
+            Block::bordered()
+                .title(search_title)
+                .border_type(border_type)
+                .border_style(Style::default().fg(border_color)),
+        );
     frame.render_widget(input, area);
+
     if let InputMode::Editing = app.input_mode {
-        frame.set_cursor_position(Position { x: area.x + app.character_index as u16 + 1, y: area.y + 1 });
+        frame.set_cursor_position(Position {
+            x: area.x + app.character_index as u16 + 1,
+            y: area.y + 1,
+        });
     }
 }
 
@@ -704,3 +714,4 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         area,
     );
 }
+
