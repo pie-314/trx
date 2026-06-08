@@ -1052,7 +1052,7 @@ impl App {
                     }
                 } else if self.current_tab == Tab::Search && (4..=6).contains(&mouse_event.row) {
                     let is_wide = term_width >= 100;
-                    if (is_wide && mouse_event.column < term_width / 2) || !is_wide {
+                    if !is_wide || mouse_event.column < term_width / 2 {
                         self.input_mode = InputMode::Editing;
                         self.character_index = self.input.chars().count();
                         return Ok(());
