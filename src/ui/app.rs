@@ -21,6 +21,7 @@ pub enum Tab {
     Search,
     Installed,
     Updates,
+    History,
     Settings,
 }
 
@@ -67,8 +68,10 @@ pub struct App {
     update_check_in_flight: Arc<AtomicBool>,
     last_input_time: Instant,
     pending_search: bool,
-    last_search_query: String,
+    pub last_search_query: String,
     pub popup_timer: Option<Instant>,
+    pub history_entries: Vec<String>,
+    pub history_list_state: ListState,
 }
 
 impl App {
@@ -139,6 +142,8 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
+            history_entries: Vec::new(),
+            history_list_state: ListState::default(),
         };
 
         if app.current_tab != Tab::Search {
@@ -261,7 +266,18 @@ impl App {
             return Ok(());
         }
 
-        self.manager.install(terminal, &self.selected_names)
+        self.manager.install(terminal, &self.selected_names)?;
+
+        for name in &self.selected_names {
+            let (version, provider) = self.packages.iter()
+                .find(|p| &p.name == name)
+                .map(|p| (p.version.as_str(), p.provider.as_str()))
+                .unwrap_or(("unknown", "unknown"));
+            
+            crate::history::append_entry("INSTALL", name, version, provider);
+        }
+
+        Ok(())
     }
 
     fn run_remove_command(
@@ -281,6 +297,15 @@ impl App {
 
         if !to_remove.is_empty() {
             self.manager.remove(terminal, &to_remove)?;
+
+            for name in &to_remove {
+                let (version, provider) = self.packages.iter()
+                    .find(|p| &p.name == name)
+                    .map(|p| (p.version.as_str(), p.provider.as_str()))
+                    .unwrap_or(("unknown", "unknown"));
+                
+                crate::history::append_entry("REMOVE", name, version, provider);
+            }
         }
 
         Ok(())
@@ -310,7 +335,8 @@ impl App {
         self.current_tab = match self.current_tab {
             Tab::Search => Tab::Installed,
             Tab::Installed => Tab::Updates,
-            Tab::Updates => Tab::Settings,
+            Tab::Updates => Tab::History,
+            Tab::History => Tab::Settings,
             Tab::Settings => Tab::Search,
         };
 
@@ -322,7 +348,8 @@ impl App {
             Tab::Search => Tab::Settings,
             Tab::Installed => Tab::Search,
             Tab::Updates => Tab::Installed,
-            Tab::Settings => Tab::Updates,
+            Tab::History => Tab::Updates,
+            Tab::Settings => Tab::History,
         };
 
         self.reset_tab_state();
@@ -362,6 +389,13 @@ impl App {
             }
             Tab::Settings => {
                 self.loading = false;
+            }
+            Tab::History => {
+                self.loading = false;
+                let mut entries = crate::history::read_entries();
+                entries.reverse(); // latest on top
+                self.history_entries = entries;
+                self.history_list_state.select(if self.history_entries.is_empty() { None } else { Some(0) });
             }
         }
     }
@@ -440,7 +474,7 @@ impl App {
     }
 
     fn next_default_tab(&mut self) {
-        let tabs = ["Search", "Installed", "Updates", "Settings"];
+        let tabs = ["Search", "Installed", "Updates", "History", "Settings"];
         let current_pos =
             tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
         let next_pos = (current_pos + 1) % tabs.len();
@@ -450,7 +484,7 @@ impl App {
     }
 
     fn prev_default_tab(&mut self) {
-        let tabs = ["Search", "Installed", "Updates", "Settings"];
+        let tabs = ["Search", "Installed", "Updates", "History", "Settings"];
         let current_pos =
             tabs.iter().position(|&t| t == self.config.settings.default_tab).unwrap_or(0);
         let next_pos = if current_pos == 0 { tabs.len() - 1 } else { current_pos - 1 };
@@ -536,6 +570,7 @@ impl App {
                     Tab::Search => q == self.input.trim(),
                     Tab::Installed => q == "__INSTALLED__",
                     Tab::Updates => q == "__UPDATES__",
+                    Tab::History => false,
                     Tab::Settings => false,
                 };
 
@@ -754,6 +789,12 @@ impl App {
                                                 if self.settings_index > 0 {
                                                     self.settings_index -= 1;
                                                 }
+                                            } else if self.current_tab == Tab::History {
+                                                if let Some(selected) = self.history_list_state.selected() {
+                                                    if selected > 0 {
+                                                        self.history_list_state.select(Some(selected - 1));
+                                                    }
+                                                }
                                             } else if self.selected > 0 {
                                                 self.selected -= 1;
                                                 self.list_state.select(Some(self.selected));
@@ -770,6 +811,12 @@ impl App {
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
                                                 }
+                                            } else if self.current_tab == Tab::History {
+                                                if let Some(selected) = self.history_list_state.selected() {
+                                                    if selected + 1 < self.history_entries.len() {
+                                                        self.history_list_state.select(Some(selected + 1));
+                                                    }
+                                                }
                                             } else if self.selected + 1 < self.packages.len() {
                                                 self.selected += 1;
                                                 self.list_state.select(Some(self.selected));
@@ -779,15 +826,27 @@ impl App {
                                         KeyCode::Enter if self.current_tab == Tab::Settings => {
                                             self.handle_settings_toggle();
                                         }
-                                        KeyCode::Home if !self.packages.is_empty() => {
-                                            self.selected = 0;
-                                            self.list_state.select(Some(self.selected));
-                                            self.trigger_details_fetch();
+                                        KeyCode::Home => {
+                                            if self.current_tab == Tab::History {
+                                                if !self.history_entries.is_empty() {
+                                                    self.history_list_state.select(Some(0));
+                                                }
+                                            } else if !self.packages.is_empty() {
+                                                self.selected = 0;
+                                                self.list_state.select(Some(self.selected));
+                                                self.trigger_details_fetch();
+                                            }
                                         }
-                                        KeyCode::End if !self.packages.is_empty() => {
-                                            self.selected = self.packages.len() - 1;
-                                            self.list_state.select(Some(self.selected));
-                                            self.trigger_details_fetch();
+                                        KeyCode::End => {
+                                            if self.current_tab == Tab::History {
+                                                if !self.history_entries.is_empty() {
+                                                    self.history_list_state.select(Some(self.history_entries.len() - 1));
+                                                }
+                                            } else if !self.packages.is_empty() {
+                                                self.selected = self.packages.len() - 1;
+                                                self.list_state.select(Some(self.selected));
+                                                self.trigger_details_fetch();
+                                            }
                                         }
                                         _ => {}
                                     }
