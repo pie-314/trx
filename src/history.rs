@@ -4,11 +4,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 fn get_history_path() -> Option<PathBuf> {
-    if let Ok(state_home) = std::env::var("XDG_STATE_HOME") {
-        if !state_home.is_empty() {
+    if let Ok(state_home) = std::env::var("XDG_STATE_HOME")
+        && !state_home.is_empty() {
             return Some(PathBuf::from(state_home).join("trx").join("history.log"));
         }
-    }
 
     if let Some(base_dirs) = directories::BaseDirs::new() {
         return Some(
