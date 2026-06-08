@@ -800,10 +800,11 @@ impl App {
                                             } else if self.current_tab == Tab::History {
                                                 if let Some(selected) =
                                                     self.history_list_state.selected()
-                                                    && selected > 0 {
-                                                        self.history_list_state
-                                                            .select(Some(selected - 1));
-                                                    }
+                                                    && selected > 0
+                                                {
+                                                    self.history_list_state
+                                                        .select(Some(selected - 1));
+                                                }
                                             } else if self.selected > 0 {
                                                 self.selected -= 1;
                                                 self.list_state.select(Some(self.selected));
@@ -823,10 +824,11 @@ impl App {
                                             } else if self.current_tab == Tab::History {
                                                 if let Some(selected) =
                                                     self.history_list_state.selected()
-                                                    && selected + 1 < self.history_entries.len() {
-                                                        self.history_list_state
-                                                            .select(Some(selected + 1));
-                                                    }
+                                                    && selected + 1 < self.history_entries.len()
+                                                {
+                                                    self.history_list_state
+                                                        .select(Some(selected + 1));
+                                                }
                                             } else if self.selected + 1 < self.packages.len() {
                                                 self.selected += 1;
                                                 self.list_state.select(Some(self.selected));
