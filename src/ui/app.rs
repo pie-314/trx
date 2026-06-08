@@ -84,7 +84,7 @@ pub struct App {
     pub popup_timer: Option<Instant>,
     pub history_entries: Vec<String>,
     pub history_list_state: ListState,
-    last_search_query: String,
+
     search_input_mode: InputMode,
 }
 
@@ -159,6 +159,7 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
+            popup_timer: None,
             history_entries: Vec::new(),
             history_list_state: ListState::default(),
             search_input_mode: InputMode::Editing,
@@ -1064,8 +1065,7 @@ impl App {
                     }
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
-                    let has_config_path =
-                        directories::ProjectDirs::from("", "", "trx").is_some();
+                    let has_config_path = directories::ProjectDirs::from("", "", "trx").is_some();
 
                     let (general_start, mgrs_start, aesthetics_start, colors_start) =
                         if has_config_path {
