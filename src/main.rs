@@ -1,5 +1,6 @@
 mod config;
 mod fuzzy;
+pub mod history;
 mod managers;
 mod sandbox;
 mod ui;
