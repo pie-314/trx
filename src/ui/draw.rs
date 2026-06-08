@@ -411,7 +411,7 @@ fn draw_history_tab(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate:
                 let is_install = entry.contains(" INSTALL ");
                 let is_remove = entry.contains(" REMOVE ");
                 let mut style = Style::default().fg(primary_color);
-                
+
                 // Color code the action part
                 if is_install {
                     style = style.fg(success_color);

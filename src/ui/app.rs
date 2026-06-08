@@ -269,11 +269,13 @@ impl App {
         self.manager.install(terminal, &self.selected_names)?;
 
         for name in &self.selected_names {
-            let (version, provider) = self.packages.iter()
+            let (version, provider) = self
+                .packages
+                .iter()
                 .find(|p| &p.name == name)
                 .map(|p| (p.version.as_str(), p.provider.as_str()))
                 .unwrap_or(("unknown", "unknown"));
-            
+
             crate::history::append_entry("INSTALL", name, version, provider);
         }
 
@@ -299,11 +301,13 @@ impl App {
             self.manager.remove(terminal, &to_remove)?;
 
             for name in &to_remove {
-                let (version, provider) = self.packages.iter()
+                let (version, provider) = self
+                    .packages
+                    .iter()
                     .find(|p| &p.name == name)
                     .map(|p| (p.version.as_str(), p.provider.as_str()))
                     .unwrap_or(("unknown", "unknown"));
-                
+
                 crate::history::append_entry("REMOVE", name, version, provider);
             }
         }
@@ -395,7 +399,11 @@ impl App {
                 let mut entries = crate::history::read_entries();
                 entries.reverse(); // latest on top
                 self.history_entries = entries;
-                self.history_list_state.select(if self.history_entries.is_empty() { None } else { Some(0) });
+                self.history_list_state.select(if self.history_entries.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                });
             }
         }
     }
@@ -790,9 +798,12 @@ impl App {
                                                     self.settings_index -= 1;
                                                 }
                                             } else if self.current_tab == Tab::History {
-                                                if let Some(selected) = self.history_list_state.selected() {
+                                                if let Some(selected) =
+                                                    self.history_list_state.selected()
+                                                {
                                                     if selected > 0 {
-                                                        self.history_list_state.select(Some(selected - 1));
+                                                        self.history_list_state
+                                                            .select(Some(selected - 1));
                                                     }
                                                 }
                                             } else if self.selected > 0 {
@@ -812,9 +823,12 @@ impl App {
                                                     self.settings_index += 1;
                                                 }
                                             } else if self.current_tab == Tab::History {
-                                                if let Some(selected) = self.history_list_state.selected() {
+                                                if let Some(selected) =
+                                                    self.history_list_state.selected()
+                                                {
                                                     if selected + 1 < self.history_entries.len() {
-                                                        self.history_list_state.select(Some(selected + 1));
+                                                        self.history_list_state
+                                                            .select(Some(selected + 1));
                                                     }
                                                 }
                                             } else if self.selected + 1 < self.packages.len() {
@@ -840,7 +854,9 @@ impl App {
                                         KeyCode::End => {
                                             if self.current_tab == Tab::History {
                                                 if !self.history_entries.is_empty() {
-                                                    self.history_list_state.select(Some(self.history_entries.len() - 1));
+                                                    self.history_list_state.select(Some(
+                                                        self.history_entries.len() - 1,
+                                                    ));
                                                 }
                                             } else if !self.packages.is_empty() {
                                                 self.selected = self.packages.len() - 1;

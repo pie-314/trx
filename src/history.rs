@@ -9,11 +9,13 @@ fn get_history_path() -> Option<PathBuf> {
             return Some(PathBuf::from(state_home).join("trx").join("history.log"));
         }
     }
-    
+
     if let Some(base_dirs) = directories::BaseDirs::new() {
-        return Some(base_dirs.home_dir().join(".local").join("state").join("trx").join("history.log"));
+        return Some(
+            base_dirs.home_dir().join(".local").join("state").join("trx").join("history.log"),
+        );
     }
-    
+
     None
 }
 
