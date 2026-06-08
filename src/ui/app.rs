@@ -80,6 +80,7 @@ pub struct App {
     last_input_time: Instant,
     pending_search: bool,
     last_search_query: String,
+    search_input_mode: InputMode,
 }
 
 impl App {
@@ -116,7 +117,11 @@ impl App {
 
         let mut app = Self {
             input: String::new(),
-            input_mode: InputMode::Normal,
+            input_mode: if let Tab::Search = current_tab {
+                InputMode::Editing
+            } else {
+                InputMode::Normal
+            },
             current_tab,
             packages: Vec::new(),
             checked: Vec::new(),
@@ -149,6 +154,7 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
+            search_input_mode: InputMode::Editing,
         };
 
         if app.current_tab != Tab::Search {
@@ -322,6 +328,10 @@ impl App {
     }
 
     fn switch_tab(&mut self) {
+        if self.current_tab == Tab::Search {
+            self.search_input_mode = self.input_mode;
+        }
+
         self.current_tab = match self.current_tab {
             Tab::Search => Tab::Installed,
             Tab::Installed => Tab::Updates,
@@ -329,16 +339,32 @@ impl App {
             Tab::Settings => Tab::Search,
         };
 
+        if self.current_tab == Tab::Search {
+            self.input_mode = self.search_input_mode;
+        } else {
+            self.input_mode = InputMode::Normal;
+        }
+
         self.reset_tab_state();
     }
 
     fn switch_tab_previous(&mut self) {
+        if self.current_tab == Tab::Search {
+            self.search_input_mode = self.input_mode;
+        }
+
         self.current_tab = match self.current_tab {
             Tab::Search => Tab::Settings,
             Tab::Installed => Tab::Search,
             Tab::Updates => Tab::Installed,
             Tab::Settings => Tab::Updates,
         };
+
+        if self.current_tab == Tab::Search {
+            self.input_mode = self.search_input_mode;
+        } else {
+            self.input_mode = InputMode::Normal;
+        }
 
         self.reset_tab_state();
     }
@@ -797,10 +823,11 @@ impl App {
                                         }
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
+                                                let mgr_count = self.available_managers.len();
                                                 let max = if self.config.theme_name == "Custom" {
-                                                    15
+                                                    7 + mgr_count + 8
                                                 } else {
-                                                    9
+                                                    7 + mgr_count + 2
                                                 };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
@@ -848,6 +875,16 @@ impl App {
                                 KeyCode::Esc => {
                                     self.input_mode = InputMode::Normal;
                                 }
+                                KeyCode::Tab => {
+                                    self.switch_tab();
+                                    self.last_selected = usize::MAX;
+                                    self.trigger_details_fetch();
+                                }
+                                KeyCode::BackTab => {
+                                    self.switch_tab_previous();
+                                    self.last_selected = usize::MAX;
+                                    self.trigger_details_fetch();
+                                }
                                 _ => {}
                             },
 
@@ -873,9 +910,9 @@ impl App {
                 if self.current_tab == Tab::Settings {
                     let mgr_count = self.available_managers.len();
                     let max = if self.config.theme_name == "Custom" {
-                        6 + mgr_count + 6
+                        7 + mgr_count + 8
                     } else {
-                        6 + mgr_count
+                        7 + mgr_count + 2
                     };
                     if self.settings_index < max {
                         self.settings_index += 1;
@@ -922,31 +959,54 @@ impl App {
                                 _ => self.current_tab,
                             };
                             if new_tab != self.current_tab {
+                                if self.current_tab == Tab::Search {
+                                    self.search_input_mode = self.input_mode;
+                                }
                                 self.current_tab = new_tab;
+                                if self.current_tab == Tab::Search {
+                                    self.input_mode = self.search_input_mode;
+                                } else {
+                                    self.input_mode = InputMode::Normal;
+                                }
                                 self.reset_tab_state();
                             }
                             return Ok(());
                         }
                         current_x += width + 3; // 3 for " | " separator in Ratatui Tabs
                     }
+                } else if self.current_tab == Tab::Search && (4..=6).contains(&mouse_event.row) {
+                    let is_wide = term_width >= 100;
+                    if (is_wide && mouse_event.column < term_width / 2) || !is_wide {
+                        self.input_mode = InputMode::Editing;
+                        self.character_index = self.input.chars().count();
+                        return Ok(());
+                    }
                 } else if
                 // Settings interaction
                 self.current_tab == Tab::Settings {
+                    if self.input_mode == InputMode::Editing {
+                        self.input_mode = InputMode::Normal;
+                    }
                     let r = mouse_event.row;
                     let mgr_count = self.available_managers.len() as u16;
+                    let has_config_path =
+                        directories::ProjectDirs::from("", "", "trx").is_some();
 
-                    let idx = if (7..=13).contains(&r) {
-                        Some(r - 7)
-                    } else if r >= 15 && r < 15 + mgr_count {
-                        Some(r - 15 + 7)
-                    } else if r == 16 + mgr_count {
-                        Some(7 + mgr_count)
-                    } else if r == 17 + mgr_count {
-                        Some(8 + mgr_count)
-                    } else if r == 18 + mgr_count {
-                        Some(9 + mgr_count)
-                    } else if r >= 20 + mgr_count && r < 26 + mgr_count {
-                        Some(r - (20 + mgr_count) + 8 + mgr_count)
+                    let (general_start, mgrs_start, aesthetics_start, colors_start) =
+                        if has_config_path {
+                            (8, 17, 19 + mgr_count, 24 + mgr_count)
+                        } else {
+                            (6, 15, 17 + mgr_count, 22 + mgr_count)
+                        };
+
+                    let idx = if (general_start..general_start + 7).contains(&r) {
+                        Some(r - general_start)
+                    } else if (mgrs_start..mgrs_start + mgr_count).contains(&r) {
+                        Some(r - mgrs_start + 7)
+                    } else if (aesthetics_start..aesthetics_start + 3).contains(&r) {
+                        Some(r - aesthetics_start + 7 + mgr_count)
+                    } else if (colors_start..colors_start + 6).contains(&r) {
+                        Some(r - colors_start + 7 + mgr_count + 3)
                     } else {
                         None
                     };
@@ -959,6 +1019,9 @@ impl App {
                     }
                 } else {
                     // List/Details interaction
+                    if self.input_mode == InputMode::Editing {
+                        self.input_mode = InputMode::Normal;
+                    }
                     let is_wide = term_width >= 100;
                     let split_col = if is_wide { term_width / 2 } else { (term_width * 6) / 10 };
 
