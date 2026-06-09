@@ -1,36 +1,14 @@
 [package]
-name = "trx-cli"
-version = "0.1.12"
-edition = "2024"
-description = "A Modern Cross-Platform Package Manager TUI"
-license = "MIT"
-repository = "https://github.com/pie-314/trx"
-homepage = "https://github.com/pie-314/trx"
-
-[[bin]]
 name = "trx"
-path = "src/main.rs"
+version = "0.1.0"
+edition = "2021"
 
 [dependencies]
-color-eyre = "0.6.5"
-ratatui = "0.29.0"
-textwrap = "0.16.2"
-lazy_static = "1.4"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+log = "0.4"
+quick-xml = "0.28"
 serde = { version = "1.0", features = ["derive"] }
-rayon = "1.8"
 serde_json = "1.0"
-urlencoding = "2.1"
-flate2 = "1.1.5"
-tar = "0.4.44"
-toml = "0.8"
-directories = "5.0"
-tempfile = "3.10"
-self-replace = "1.5"
-
-[profile.release]
-opt-level = "z"     # Optimize for size
-lto = true          # Enable Link Time Optimization
-codegen-units = 1   # Reduce parallel codegen units to increase optimizations
-panic = "abort"     # Remove panic unwinding to save space
-strip = true        # Strip symbols from binary
+reqwest = { version = "0.11", features = ["json"] }
+thiserror = "1.0"
