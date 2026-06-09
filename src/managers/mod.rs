@@ -3,6 +3,7 @@ pub mod arch;
 pub mod brew;
 pub mod pacman;
 pub mod yay;
+pub mod zypper;
 
 use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
@@ -197,6 +198,10 @@ pub fn get_available_managers() -> Vec<String> {
         available.push("apt".to_string());
     }
 
+    if std::process::Command::new("which").arg("zypper").output().map(|o| o.status.success()).unwrap_or(false) {
+        available.push("zypper".to_string());
+    }
+
     available
 }
 
@@ -217,6 +222,10 @@ pub fn get_system_manager(config: &crate::config::Config) -> Box<dyn PackageMana
 
     if available.contains(&"apt".to_string()) && enabled.contains(&"apt".to_string()) {
         managers.push(Box::new(apt::AptManager));
+    }
+
+    if available.contains(&"zypper".to_string()) && enabled.contains(&"zypper".to_string()) {
+        managers.push(Box::new(zypper::ZypperManager));
     }
 
     if managers.is_empty() {
@@ -286,6 +295,8 @@ pub fn manager_handles_provider(manager_name: &str, provider: &str) -> bool {
         m_lower.contains("brew")
     } else if p_lower.contains("apt") {
         m_lower.contains("apt") || m_lower.contains("debian") || m_lower.contains("ubuntu")
+    } else if p_lower.contains("zypper") || p_lower.contains("opensuse") || p_lower.contains("suse") {
+        m_lower.contains("zypper") || m_lower.contains("opensuse") || m_lower.contains("suse")
     } else {
         p_lower.contains(&m_lower) || m_lower.contains(&p_lower)
     }
