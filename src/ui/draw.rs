@@ -65,6 +65,8 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
 
     if let crate::ui::app::Tab::Settings = app.current_tab {
         draw_settings_tab(frame, app, content_area, &theme_colors);
+    } else if let crate::ui::app::Tab::History = app.current_tab {
+        draw_history_tab(frame, app, content_area, &theme_colors);
     } else {
         // Responsive layout for content area
         let is_wide = content_area.width >= 100;
@@ -195,7 +197,7 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Th
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let border_type = get_border_type(&app.config.settings.border_style);
 
-    let tab_titles = vec!["Search", "Installed", "Updates", "Settings"];
+    let tab_titles = vec!["Search", "Installed", "Updates", "History", "Settings"];
     let tabs = ratatui::widgets::Tabs::new(tab_titles)
         .block(
             Block::bordered()
@@ -207,7 +209,8 @@ fn draw_tabs(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Th
             crate::ui::app::Tab::Search => 0,
             crate::ui::app::Tab::Installed => 1,
             crate::ui::app::Tab::Updates => 2,
-            crate::ui::app::Tab::Settings => 3,
+            crate::ui::app::Tab::History => 3,
+            crate::ui::app::Tab::Settings => 4,
         })
         .highlight_style(Style::default().fg(highlight_color).add_modifier(Modifier::BOLD));
     frame.render_widget(tabs, area);
@@ -380,6 +383,57 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     frame.render_widget(paragraph, area);
 }
 
+fn draw_history_tab(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate::config::Theme) {
+    let highlight_bg = app.config.get_color(&theme.highlight_color);
+    let highlight_fg = crate::config::Config::contrast_fg_for(highlight_bg);
+    let primary_color = app.config.get_color(&theme.text_primary);
+    let secondary_color = app.config.get_color(&theme.text_secondary);
+    let success_color = app.config.get_color(&theme.success_color);
+    let error_color = app.config.get_color(&theme.error_color);
+    let border_color = app.config.get_color(&theme.border_color);
+    let border_type = get_border_type(&app.config.settings.border_style);
+
+    let items: Vec<ListItem> = if app.history_entries.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No history yet \u{2014} install or remove a package to begin tracking.",
+            Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC),
+        )))]
+    } else {
+        app.history_entries
+            .iter()
+            .map(|entry| {
+                let is_install = entry.contains(" INSTALL ");
+                let is_remove = entry.contains(" REMOVE ");
+                let mut style = Style::default().fg(primary_color);
+
+                // Color code the action part
+                if is_install {
+                    style = style.fg(success_color);
+                } else if is_remove {
+                    style = style.fg(error_color);
+                }
+
+                ListItem::new(Line::from(Span::styled(entry, style)))
+            })
+            .collect()
+    };
+
+    let title = format!(" History ({}) ", app.history_entries.len());
+    let list = List::new(items)
+        .block(
+            Block::bordered()
+                .title(title)
+                .border_type(border_type)
+                .border_style(Style::default().fg(border_color)),
+        )
+        .highlight_style(
+            Style::default().bg(highlight_bg).fg(highlight_fg).add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    frame.render_stateful_widget(list, area, &mut app.history_list_state);
+}
+
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
     let highlight_color = app.config.get_color(&theme.highlight_color);
     let secondary_color = app.config.get_color(&theme.text_secondary);
@@ -461,6 +515,8 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
     let border_type = get_border_type(&app.config.settings.border_style);
     let spinners = get_spinner(&app.config.settings.spinner_type);
 
+    let mut ghost_message = None;
+
     let items: Vec<ListItem> = if app.packages.is_empty() {
         if app.loading {
             vec![ListItem::new(Line::from(Span::styled(
@@ -470,10 +526,8 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
         } else if !app.input.trim().is_empty()
             || !matches!(app.current_tab, crate::ui::app::Tab::Search)
         {
-            vec![ListItem::new(Line::from(Span::styled(
-                "  No results found.",
-                Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC),
-            )))]
+            ghost_message = Some("No packages found. Try a broader search term.");
+            vec![]
         } else {
             vec![ListItem::new(Line::from(Span::styled(
                 "  Start typing to search...",
@@ -534,7 +588,16 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
 
     let highlight_bg = app.config.get_color(&theme.highlight_color);
     let highlight_fg = crate::config::Config::contrast_fg_for(highlight_bg);
+
+    let list_block = Block::bordered()
+        .title(list_title)
+        .border_type(border_type)
+        .border_style(Style::default().fg(border_color));
+
+    let inner_area = list_block.inner(area);
+
     let list = List::new(items)
+ feat/help-tab-hint
         .block(
             Block::bordered()
                 .title(list_title)
@@ -546,12 +609,31 @@ let list_border_color = if is_list_active { highlight_color } else { border_colo
 // Then change the border_style line
 .border_style(Style::default().fg(list_border_color))
         )
+  
+        .block(list_block)
+ dev
         .highlight_style(
             Style::default().bg(highlight_bg).fg(highlight_fg).add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">> ");
 
     frame.render_stateful_widget(list, area, &mut app.list_state);
+
+    if let Some(msg) = ghost_message {
+        let vertical_padding = inner_area.height.saturating_sub(1) / 2;
+        let p_area = Rect {
+            x: inner_area.x,
+            y: inner_area.y + vertical_padding,
+            width: inner_area.width,
+            height: 1,
+        };
+        let p = Paragraph::new(msg)
+            .style(
+                Style::default().fg(secondary_color).add_modifier(Modifier::ITALIC | Modifier::DIM),
+            )
+            .alignment(ratatui::layout::Alignment::Center);
+        frame.render_widget(p, p_area);
+    }
 }
 
 fn draw_details(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
