@@ -5,9 +5,9 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Clear, List, ListItem, Paragraph, Wrap},
 };
+use crate::ui::input::InputMode;
 
-use crate::ui::{app::App, input::InputMode};
-
+use crate::ui::app::{App, SortBy};
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::vertical([
         Constraint::Percentage((100 - percent_y) / 2),
@@ -467,8 +467,15 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
     let primary_color = app.config.get_color(&theme.text_primary);
     let border_type = get_border_type(&app.config.settings.border_style);
     let spinners = get_spinner(&app.config.settings.spinner_type);
-
-    let items: Vec<ListItem> = if app.packages.is_empty() {
+        // Sort packages based on current sort_by
+    let mut sorted_packages = app.packages.clone();
+    match app.sort_by {
+        SortBy::Name => sorted_packages.sort_by(|a, b| a.name.cmp(&b.name)),
+        SortBy::Version => sorted_packages.sort_by(|a, b| a.version.cmp(&b.version)),
+        SortBy::Provider => sorted_packages.sort_by(|a, b| a.provider.cmp(&b.provider)),
+        SortBy::Score => (),
+    }
+    let items: Vec<ListItem> = if sorted_packages.is_empty() {
         if app.loading {
             vec![ListItem::new(Line::from(Span::styled(
                 "  Searching...",
@@ -488,10 +495,10 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
             )))]
         }
     } else {
-        app.packages
-            .iter()
-            .enumerate()
-            .map(|(i, pkg)| {
+    sorted_packages
+        .iter()
+        .enumerate()
+        .map(|(i, pkg)| {
                 let is_selected = i == app.selected;
                 let is_checked = app.checked[i];
                 let is_installed = app.installed_packages.contains(&pkg.name);
@@ -533,12 +540,18 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
     let spinner =
         if app.loading { spinners[(app.spinner_tick as usize / 5) % spinners.len()] } else { "" };
 
+        let sort_indicator = match app.sort_by {
+        SortBy::Name => " (sorted by: Name)",
+        SortBy::Version => " (sorted by: Version)",
+        SortBy::Provider => " (sorted by: Provider)",
+        SortBy::Score => "",
+    };
+
     let list_title = if app.loading && !matches!(app.current_tab, crate::ui::app::Tab::Search) {
         format!(" Packages {} ", spinner)
     } else {
-        format!(" Packages ({}) ", app.packages.len())
+        format!(" Packages ({}){} ", app.packages.len(), sort_indicator)
     };
-
     let highlight_bg = app.config.get_color(&theme.highlight_color);
     let highlight_fg = crate::config::Config::contrast_fg_for(highlight_bg);
     let list = List::new(items)
