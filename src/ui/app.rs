@@ -23,7 +23,13 @@ pub enum Tab {
     Updates,
     Settings,
 }
-
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SortBy {
+    Score,
+    Name,
+    Version,
+    Provider,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub enum DetailsState {
     Empty,
@@ -48,7 +54,7 @@ pub struct App {
     pub details_state: DetailsState,
     pub last_selected: usize,
     pub show_help: bool,
-    pub update_prompt: Option<(String, String)>, // (version, url)
+    pub update_prompt: Option<(String, String)>,
     pub update_selected_yes: bool,
     pub spinner_tick: u8,
     pub manager: Arc<Box<dyn managers::PackageManager>>,
@@ -56,21 +62,21 @@ pub struct App {
     pub settings_index: usize,
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
-    pub popup_message: Option<(String, Color)>, // (message, color)
+    pub popup_message: Option<(String, Color)>,
+    pub sort_by: SortBy,
+    pub sort_menu_open: bool,
     result_tx: Sender<(String, Vec<Package>)>,
     result_rx: Receiver<(String, Vec<Package>)>,
     details_tx: Sender<DetailsState>,
     details_rx: Receiver<DetailsState>,
     update_tx: Sender<Option<(String, String)>>,
     update_rx: Receiver<Option<(String, String)>>,
-    /// Guard to prevent overlapping manual update-check threads.
     update_check_in_flight: Arc<AtomicBool>,
     last_input_time: Instant,
     pending_search: bool,
     last_search_query: String,
     pub popup_timer: Option<Instant>,
 }
-
 impl App {
     pub fn new(
         result_tx: Sender<(String, Vec<Package>)>,
@@ -104,6 +110,8 @@ impl App {
         };
 
         let mut app = Self {
+            sort_by: SortBy::Score,
+            sort_menu_open: false,
             input: String::new(),
             input_mode: InputMode::Normal,
             current_tab,
