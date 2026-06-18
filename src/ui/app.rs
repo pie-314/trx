@@ -57,6 +57,7 @@ pub struct App {
     pub settings_index: usize,
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
+    pub in_keybindings_menu: bool,
     pub popup_message: Option<(String, Color)>, // (message, color)
     result_tx: Sender<(String, Vec<Package>)>,
     result_rx: Receiver<(String, Vec<Package>)>,
@@ -119,6 +120,7 @@ impl App {
             details_state: DetailsState::Empty,
             last_selected: usize::MAX,
             show_help: false,
+            in_keybindings_menu: false,
             update_prompt: None,
             update_selected_yes: true,
             spinner_tick: 0,
@@ -798,9 +800,9 @@ impl App {
                                         KeyCode::Down | KeyCode::Char('j') => {
                                             if self.current_tab == Tab::Settings {
                                                 let max = if self.config.theme_name == "Custom" {
-                                                    14+11
+                                                    14+12
                                                 } else {
-                                                    8+11
+                                                    8+12
                                                 };
                                                 if self.settings_index < max {
                                                     self.settings_index += 1;
@@ -1186,7 +1188,10 @@ impl App {
     }
     pub fn get_selected_keybinding_action_name(&self) -> Option<String> {
         let mgr_count = self.available_managers.len();
-        let baseline_start = 6 + mgr_count + 3; 
+        let mut baseline_start = 6 + mgr_count + 3; 
+        if self.config.theme_name == "Custom"{
+            baseline_start += 6;
+        }
         if self.settings_index >= baseline_start && self.settings_index < baseline_start + 12 {
             match self.settings_index - baseline_start{
                 0 => Some("quit".to_string()),

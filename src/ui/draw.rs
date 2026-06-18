@@ -405,13 +405,16 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     draw_setting!(current_idx + 2, "Remove Package", &keys.remove, false);
     draw_setting!(current_idx + 3, "Update Package", &keys.update, false);
     draw_setting!(current_idx + 4, "Search / Edit", &keys.search_edit, false);
-    draw_setting!(current_idx + 5, "Toggle Select", &keys.toggle_select, false);
+    draw_setting!(current_idx + 5, "Toggle Select", &keys.toggle_select, false); 
     draw_setting!(current_idx + 6, "Next Tab", &keys.tab_next, false);
     draw_setting!(current_idx + 7, "Previous Tab", &keys.tab_prev, false);
     draw_setting!(current_idx + 8, "System Upgrade", &keys.system_upgrade, false);
     draw_setting!(current_idx + 9, "Refresh Database", &keys.refresh_db, false);
     draw_setting!(current_idx + 10, "Open Help Menu", &keys.help, false);
     draw_setting!(current_idx + 11, "Check Updates", &keys.check_update, false);
+    let visible_height = area.height.saturating_sub(2) as usize; // subtract borders
+    let scroll_offset = app.settings_index.saturating_sub(visible_height / 2) as u16;
+
     let paragraph = Paragraph::new(settings_lines)
         .block(
             Block::bordered()
@@ -419,9 +422,36 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
                 .border_type(border_type)
                 .border_style(Style::default().fg(border_color)),
         )
-        .wrap(Wrap { trim: false });
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_offset, 0));
 
     frame.render_widget(paragraph, area);
+
+    if matches!(app.input_mode, InputMode::Rebinding){
+        let popup_area = get_popup_area(55, 35, area);
+        frame.render_widget(Clear, popup_area);
+        let action_name = app.get_selected_keybinding_action_name().unwrap_or_else(|| "Unknown".to_string());
+        let popup_text = vec![
+            Line::from(""),
+            Line::from(Span::styled("Press the new key combination to assign...", Style::default().fg(secondary_color))),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw(" Rebinding Action: "),
+                Span::styled(action_name, Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(" [Press ESC to Cancel]", Style::default().fg(app.config.get_color(&theme.error_color)))),
+        ];
+        let popup_block = Paragraph::new(popup_text)
+            .block(
+                Block::bordered()
+                    .title(" ⚠️ Keybinding Editor ")
+                    .border_style(Style::default().fg(highlight_color))
+                    .border_type(BorderType::Double), 
+            )
+            .wrap(Wrap { trim: true });
+        frame.render_widget(popup_block, popup_area);
+    }
 }
 
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
@@ -746,4 +776,24 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
             .wrap(Wrap { trim: true }),
         area,
     );
+}
+
+fn get_popup_area(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
