@@ -70,7 +70,7 @@ fn main() -> Result<()> {
     restore();
 
     match app_result {
-        Ok(Some(url)) => {
+        Ok(Some(ref url)) => {
             println!("Downloading update...");
             match updater::update_self(&url) {
                 Ok(_) => {

@@ -110,6 +110,22 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
     if let Some((msg, color)) = &app.popup_message {
         draw_popup(frame, msg, *color, &theme_colors, &app.config.settings.border_style);
     }
+    if matches!(app.input_mode,crate::ui::input::InputMode::Rebinding){
+        let popup_area = centered_rect(60,20,frame.area());
+        let block = ratatui::widgets::Block::default()
+            .title(" Rebind System Keybinding ")
+            .borders(ratatui::widgets::Borders::ALL)
+            .border_style(ratatui::style::Style::default().fg(ratatui::style::Color::Yellow));
+        let binding_text = format!(
+            "\nModifying shortcut action: [{}]\n\nPress any keyboard key to assign...\n(Press ESC to return safely)",
+            app.selected_key_action.as_deref().unwrap_or("Unknown")
+        );  
+        let overlay_widget = ratatui::widgets::Paragraph::new(binding_text)
+            .alignment(ratatui::layout::Alignment::Center)
+            .block(block);
+        frame.render_widget(ratatui::widgets::Clear, popup_area); 
+        frame.render_widget(overlay_widget, popup_area);
+    }
 }
 
 fn draw_update_prompt(frame: &mut Frame, app: &App, theme: &crate::config::Theme) {
@@ -190,6 +206,10 @@ fn draw_help_header(frame: &mut Frame, app: &App, area: Rect) {
                 "Enter".bold(),
                 " to submit".into(),
             ],
+            Style::default(),
+        ),
+        InputMode::Rebinding => (
+            vec!["[Esc] Cancel".into()],
             Style::default(),
         ),
     };
@@ -371,8 +391,29 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
             draw_setting!(current_idx + 3, "Error Color", &ct.error_color, false);
             draw_setting!(current_idx + 4, "Text Primary", &ct.text_primary, false);
             draw_setting!(current_idx + 5, "Text Secondary", &ct.text_secondary, false);
+            current_idx += 6;
         }
     }
+    settings_lines.push(Line::from(""));
+    settings_lines.push(Line::from(Span::styled(
+        "--- Keybindings ---",
+        Style::default().fg(highlight_color).add_modifier(Modifier::BOLD),
+    )));
+    let keys = &app.config.keys;
+    draw_setting!(current_idx, "Quit Application", &keys.quit, false);
+    draw_setting!(current_idx + 1, "Install Package", &keys.install, false);
+    draw_setting!(current_idx + 2, "Remove Package", &keys.remove, false);
+    draw_setting!(current_idx + 3, "Update Package", &keys.update, false);
+    draw_setting!(current_idx + 4, "Search / Edit", &keys.search_edit, false);
+    draw_setting!(current_idx + 5, "Toggle Select", &keys.toggle_select, false); 
+    draw_setting!(current_idx + 6, "Next Tab", &keys.tab_next, false);
+    draw_setting!(current_idx + 7, "Previous Tab", &keys.tab_prev, false);
+    draw_setting!(current_idx + 8, "System Upgrade", &keys.system_upgrade, false);
+    draw_setting!(current_idx + 9, "Refresh Database", &keys.refresh_db, false);
+    draw_setting!(current_idx + 10, "Open Help Menu", &keys.help, false);
+    draw_setting!(current_idx + 11, "Check Updates", &keys.check_update, false);
+    let visible_height = area.height.saturating_sub(2) as usize; // subtract borders
+    let scroll_offset = app.settings_index.saturating_sub(visible_height / 2) as u16;
 
     let paragraph = Paragraph::new(settings_lines)
         .block(
@@ -381,9 +422,36 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
                 .border_type(border_type)
                 .border_style(Style::default().fg(border_color)),
         )
-        .wrap(Wrap { trim: false });
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_offset, 0));
 
     frame.render_widget(paragraph, area);
+
+    if matches!(app.input_mode, InputMode::Rebinding){
+        let popup_area = get_popup_area(55, 35, area);
+        frame.render_widget(Clear, popup_area);
+        let action_name = app.get_selected_keybinding_action_name().unwrap_or_else(|| "Unknown".to_string());
+        let popup_text = vec![
+            Line::from(""),
+            Line::from(Span::styled("Press the new key combination to assign...", Style::default().fg(secondary_color))),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw(" Rebinding Action: "),
+                Span::styled(action_name, Style::default().fg(highlight_color).add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(" [Press ESC to Cancel]", Style::default().fg(app.config.get_color(&theme.error_color)))),
+        ];
+        let popup_block = Paragraph::new(popup_text)
+            .block(
+                Block::bordered()
+                    .title(" ⚠️ Keybinding Editor ")
+                    .border_style(Style::default().fg(highlight_color))
+                    .border_type(BorderType::Double), 
+            )
+            .wrap(Wrap { trim: true });
+        frame.render_widget(popup_block, popup_area);
+    }
 }
 
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
@@ -394,6 +462,7 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
     let mode_str = match app.input_mode {
         InputMode::Normal => " NORMAL ",
         InputMode::Editing => " EDITING ",
+        InputMode::Rebinding => " REBINDING ",
     };
 
     let mode_style = match app.input_mode {
@@ -402,6 +471,9 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
         }
         InputMode::Editing => {
             Style::default().bg(Color::Yellow).fg(Color::Black).add_modifier(Modifier::BOLD)
+        }
+        InputMode::Rebinding => {
+            Style::default().bg(Color::Magenta).fg(Color::White).add_modifier(Modifier::BOLD)
         }
     };
 
@@ -704,4 +776,24 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
             .wrap(Wrap { trim: true }),
         area,
     );
+}
+
+fn get_popup_area(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
