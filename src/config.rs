@@ -17,6 +17,11 @@ pub struct Settings {
     /// latest; cleared from config when a genuinely newer release is detected,
     /// so the prompt resurfaces automatically for new updates.
     pub skipped_update_version: Option<String>,
+    /// Status-bar widgets to display, in order (left → right on the right
+    /// side of the bar). Recognised values: "clock", "cpu", "manager".
+    /// An empty list disables all optional widgets.
+    #[serde(default = "default_status_widgets")]
+    pub status_widgets: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -38,6 +43,10 @@ pub struct Keys {
 
 fn default_check_update_key() -> String {
     "C".to_string()
+}
+
+fn default_status_widgets() -> Vec<String> {
+    vec!["clock".to_string(), "cpu".to_string(), "manager".to_string()]
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -75,10 +84,12 @@ impl Default for Config {
                     "yay".to_string(),
                     "brew".to_string(),
                     "apt".to_string(),
+                    "zypper".to_string(),
                 ],
                 border_style: "Rounded".to_string(),
                 spinner_type: "Dots".to_string(),
                 skipped_update_version: None,
+                status_widgets: default_status_widgets(),
             },
             keys: Keys {
                 quit: "q".to_string(),

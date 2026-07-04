@@ -422,7 +422,6 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
 
 fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {
     let highlight_color = app.config.get_color(&theme.highlight_color);
-    let secondary_color = app.config.get_color(&theme.text_secondary);
     let primary_color = app.config.get_color(&theme.text_primary);
 
     let mode_str = match app.input_mode {
@@ -448,19 +447,32 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
         ),
         Span::raw(" | "),
         Span::styled(
-            format!("Manager: {} ", app.manager.name()),
-            Style::default().fg(secondary_color),
-        ),
-        Span::raw(" | "),
-        Span::styled(
             "Press '?' for help ",
             Style::default().fg(primary_color).add_modifier(Modifier::ITALIC),
         ),
     ]);
 
-    let paragraph =
+    // Build layout constraints: left side takes remaining space; each widget
+    // gets exactly its `min_width()` columns on the right.
+    let mut constraints: Vec<Constraint> = vec![Constraint::Min(0)];
+    for widget in &app.widgets {
+        constraints.push(Constraint::Length(widget.min_width()));
+    }
+
+    let slots = Layout::horizontal(constraints)
+        .split(area);
+
+    // Render the static left-hand text in the first slot.
+    let left_paragraph =
         Paragraph::new(status_line).style(Style::default().bg(app.config.get_color("black")));
-    frame.render_widget(paragraph, area);
+    frame.render_widget(left_paragraph, slots[0]);
+
+    // Render each widget into its allocated slot (slots[1..]).
+    for (i, widget) in app.widgets.iter().enumerate() {
+        if let Some(slot) = slots.get(i + 1) {
+            widget.render(frame, *slot);
+        }
+    }
 }
 
 fn draw_search_input(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config::Theme) {

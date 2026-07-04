@@ -57,6 +57,8 @@ pub struct App {
     pub details_scroll: u16,
     pub available_managers: Vec<String>,
     pub popup_message: Option<(String, Color)>, // (message, color)
+    /// Active status-bar widgets, ordered as configured in `status_widgets`.
+    pub widgets: Vec<Box<dyn crate::ui::widgets::StatusWidget>>,
     result_tx: Sender<(String, Vec<Package>)>,
     result_rx: Receiver<(String, Vec<Package>)>,
     details_tx: Sender<DetailsState>,
@@ -97,6 +99,13 @@ impl App {
         let manager = Arc::new(managers::get_system_manager(&config));
         let available_managers = managers::get_available_managers();
 
+        // Build the widget registry from config before moving config into App.
+        let manager_name = manager.name().to_string();
+        let widgets = crate::ui::widgets::build_widgets(
+            &config.settings.status_widgets,
+            manager_name,
+        );
+
         let current_tab = match config.settings.default_tab.as_str() {
             "Installed" => Tab::Installed,
             "Updates" => Tab::Updates,
@@ -129,6 +138,7 @@ impl App {
             available_managers,
             popup_message: None,
             popup_timer: None,
+            widgets,
             result_tx,
             result_rx,
             details_tx,
@@ -507,6 +517,11 @@ impl App {
 
             if self.loading || matches!(self.details_state, DetailsState::Loading) {
                 self.spinner_tick = self.spinner_tick.wrapping_add(1);
+            }
+
+            // Tick all status-bar widgets so they refresh their state.
+            for widget in &mut self.widgets {
+                widget.tick();
             }
 
             // check for update prompt response
