@@ -38,7 +38,7 @@ Search 50,000+ packages in under 50ms. Install, remove, and update without leavi
 
 <div align="center">
 
-<img src="assets/trx-preview.gif" alt="TRX in action" width="720" />
+<img src="assets/trx.gif" alt="TRX in action" width="720" />
 
 </div>
 
