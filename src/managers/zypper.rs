@@ -119,7 +119,7 @@ impl PackageManager for ZypperManager {
     // -------------------------------------------------------------------------
     fn get_installed(&self) -> HashSet<String> {
         let output = Command::new("zypper")
-            .args(["--xmlout", "packages", "--installed-only"])
+            .args(["--xmlout", "search", "-i"])
             .output()
             .ok();
 
@@ -139,7 +139,7 @@ impl PackageManager for ZypperManager {
     // -------------------------------------------------------------------------
     fn get_installed_details(&self) -> Vec<Package> {
         let output = Command::new("zypper")
-            .args(["--xmlout", "packages", "--installed-only"])
+            .args(["--xmlout", "search", "-i"])
             .output()
             .ok();
 
