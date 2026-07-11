@@ -11,6 +11,8 @@ pub struct Settings {
     pub default_tab: String,
     pub max_search_results: usize,
     pub enabled_managers: Vec<String>,
+    #[serde(default)]
+    pub sandbox: bool,
     pub border_style: String, // "Plain", "Rounded", "Double", "Thick"
     pub spinner_type: String, // "Dots", "Bars", "Pulse", "Classic", "Arc", "Braille"
     /// Version the user explicitly skipped. Ignored while the same tag is
@@ -86,6 +88,7 @@ impl Default for Config {
                     "apt".to_string(),
                     "zypper".to_string(),
                 ],
+                sandbox: false,
                 border_style: "Rounded".to_string(),
                 spinner_type: "Dots".to_string(),
                 skipped_update_version: None,

@@ -152,7 +152,7 @@ impl PackageManager for AptManager {
         let mut args = vec!["apt", "install", "-y"];
         let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
-        crate::execute_external_command(terminal, "sudo", &args)?;
+        crate::execute_package_command(terminal, "sudo", &args)?;
         Ok(())
     }
 
@@ -171,7 +171,7 @@ impl PackageManager for AptManager {
         let mut args = vec!["apt", "remove", "-y"];
         let pkg_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         args.extend(pkg_refs);
-        crate::execute_external_command(terminal, "sudo", &args)?;
+        crate::execute_package_command(terminal, "sudo", &args)?;
         Ok(())
     }
 

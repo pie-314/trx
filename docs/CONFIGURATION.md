@@ -22,6 +22,7 @@ General behavioral settings for the application.
 | `auto_update_check` | Boolean | `true` | Whether to check for `trx` updates on startup. |
 | `default_tab` | String | `"Search"` | The tab to display on startup (`"Search"`, `"Installed"`, or `"Updates"`). |
 | `max_search_results` | Integer | `50` | Maximum number of results to display in the search list. |
+| `sandbox` | Boolean | `false` | Linux-only opt-in Bubblewrap sandbox for install/remove subprocesses. Falls back with a warning if `bwrap` is unavailable. |
 
 ---
 
@@ -69,6 +70,7 @@ search_debounce_ms = 300
 auto_update_check = true
 default_tab = "Search"
 max_search_results = 100
+sandbox = false
 
 [keys]
 quit = "q"

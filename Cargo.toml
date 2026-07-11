@@ -1,6 +1,6 @@
 [package]
 name = "trx-cli"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2024"
 description = "A Modern Cross-Platform Package Manager TUI"
 license = "MIT"
@@ -27,6 +27,7 @@ toml = "0.8"
 directories = "5.0"
 tempfile = "3.10"
 self-replace = "1.5"
+chrono = "0.4.45"
 
 [profile.release]
 opt-level = "z"     # Optimize for size
