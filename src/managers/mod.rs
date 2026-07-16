@@ -95,9 +95,7 @@ impl PackageManager for CombinedManager {
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>> {
         for m in &self.managers {
             // Check if this manager's name/prefix matches the provider
-            if provider.to_lowercase().contains(&m.name().to_lowercase())
-                || m.name().to_lowercase().contains(&provider.to_lowercase())
-            {
+            if manager_handles_provider(m.name(), provider) {
                 return m.get_details(pkg, provider);
             }
         }

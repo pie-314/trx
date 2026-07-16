@@ -15,7 +15,7 @@ fn parse_xml_solvables(xml: &str, provider: &str, query: &str) -> Vec<Package> {
 
     for line in xml.lines() {
         let line = line.trim();
-        if !line.starts_with("<solvable ") {
+        if !line.starts_with("<solvable ") && !line.starts_with("<update ") {
             continue;
         }
 
@@ -48,14 +48,14 @@ fn parse_xml_solvables(xml: &str, provider: &str, query: &str) -> Vec<Package> {
 /// Minimal attribute extractor for zypper XML (avoids a full XML parser dependency).
 /// Handles both single- and double-quoted attribute values.
 fn extract_xml_attr<'a>(line: &'a str, attr: &str) -> Option<String> {
-    let needle = format!("{}=\"", attr);
+    let needle = format!(" {}=\"", attr);
     if let Some(start) = line.find(&needle) {
         let rest = &line[start + needle.len()..];
         let end = rest.find('"')?;
         return Some(rest[..end].to_string());
     }
     // Try single-quoted variant
-    let needle_sq = format!("{}='", attr);
+    let needle_sq = format!(" {}='", attr);
     if let Some(start) = line.find(&needle_sq) {
         let rest = &line[start + needle_sq.len()..];
         let end = rest.find('\'')?;
