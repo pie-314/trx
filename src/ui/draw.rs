@@ -175,35 +175,20 @@ fn draw_update_prompt(frame: &mut Frame, app: &App, theme: &crate::config::Theme
 
 fn draw_help_header(frame: &mut Frame, app: &App, area: Rect) {
     let keys = &app.config.keys;
-    let (help_lines, style) = match app.input_mode {
-        InputMode::Normal => (
-            vec![
-                "Press ".into(),
-                keys.quit.clone().bold(),
-                " to quit, ".into(),
-                keys.search_edit.clone().bold(),
-                " to edit, ".into(),
-                keys.tab_next.clone().bold(),
-                "/".into(),
-                keys.tab_prev.clone().bold(),
-                " to switch tabs, ".into(),
-                keys.help.clone().bold(),
-                " for help".into(),
-            ],
-            Style::default().add_modifier(Modifier::RAPID_BLINK),
-        ),
-        InputMode::Editing => (
+        let (help_lines, style) = match app.input_mode {
+        InputMode::Normal => ( ... ),
+        InputMode::Editing => ( ... ),
+        InputMode::DetailScrolling => (
             vec![
                 "Press ".into(),
                 "Esc".bold(),
-                " to stop editing, ".into(),
-                "Enter".bold(),
-                " to submit".into(),
+                " to stop scrolling, ".into(),
+                "j/k".bold(),
+                " to scroll".into(),
             ],
             Style::default(),
         ),
     };
-
     let text = Text::from(Line::from(help_lines)).patch_style(style);
     frame.render_widget(Paragraph::new(text), area);
 }
@@ -454,18 +439,16 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect, theme: &crate::conf
     let secondary_color = app.config.get_color(&theme.text_secondary);
     let primary_color = app.config.get_color(&theme.text_primary);
 
-    let mode_str = match app.input_mode {
+        let mode_str = match app.input_mode {
         InputMode::Normal => " NORMAL ",
         InputMode::Editing => " EDITING ",
+        InputMode::DetailScrolling => " DETAIL SCROLLING ",
     };
 
     let mode_style = match app.input_mode {
-        InputMode::Normal => {
-            Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD)
-        }
-        InputMode::Editing => {
-            Style::default().bg(Color::Yellow).fg(Color::Black).add_modifier(Modifier::BOLD)
-        }
+        InputMode::Normal => Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD),
+        InputMode::Editing => Style::default().bg(Color::Yellow).fg(Color::Black).add_modifier(Modifier::BOLD),
+        InputMode::DetailScrolling => Style::default().bg(Color::Green).fg(Color::Black).add_modifier(Modifier::BOLD),
     };
 
     let status_line = Line::from(vec![
@@ -497,11 +480,13 @@ fn draw_search_input(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
     let border_color = app.config.get_color(&theme.border_color);
     let border_type = get_border_type(&app.config.settings.border_style);
     let spinners = get_spinner(&app.config.settings.spinner_type);
-
-    let spinner =
-        if app.loading { spinners[(app.spinner_tick as usize / 5) % spinners.len()] } else { "" };
-
+    let spinner = if app.loading { spinners[(app.spinner_tick as usize / 5) % spinners.len()] } else { "" };
     let search_title = format!(" Search {} ", spinner);
+    
+    // NEW: Active check
+    let is_search_active = matches!(app.input_mode, InputMode::Editing);
+    let search_border_color = if is_search_active { highlight_color } else { border_color };
+    
     let input = Paragraph::new(app.input.as_str())
         .style(match app.input_mode {
             InputMode::Editing => Style::default().fg(highlight_color),
@@ -511,10 +496,9 @@ fn draw_search_input(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
             Block::bordered()
                 .title(search_title)
                 .border_type(border_type)
-                .border_style(Style::default().fg(border_color)),
+                .border_style(Style::default().fg(search_border_color)),  // <-- Changed
         );
     frame.render_widget(input, area);
-
     if let InputMode::Editing = app.input_mode {
         frame.set_cursor_position(Position {
             x: area.x + app.character_index as u16 + 1,
@@ -613,7 +597,21 @@ fn draw_package_list(frame: &mut Frame, app: &mut App, area: Rect, theme: &crate
     let inner_area = list_block.inner(area);
 
     let list = List::new(items)
+ feat/help-tab-hint
+        .block(
+            Block::bordered()
+                .title(list_title)
+                .border_type(border_type)
+               // Add these lines BEFORE the List::new
+let is_list_active = matches!(app.input_mode, InputMode::Normal);
+let list_border_color = if is_list_active { highlight_color } else { border_color };
+
+// Then change the border_style line
+.border_style(Style::default().fg(list_border_color))
+        )
+  
         .block(list_block)
+ dev
         .highlight_style(
             Style::default().bg(highlight_bg).fg(highlight_fg).add_modifier(Modifier::BOLD),
         )
@@ -679,7 +677,12 @@ fn draw_details(frame: &mut Frame, app: &App, area: Rect, theme: &crate::config:
             Block::bordered()
                 .title("Details")
                 .border_type(border_type)
-                .border_style(Style::default().fg(border_color)),
+               // Add these lines BEFORE the Paragraph::new
+let is_details_active = matches!(app.input_mode, InputMode::DetailScrolling);
+let details_border_color = if is_details_active { highlight_color } else { border_color };
+
+// Then change the border_style line
+.border_style(Style::default().fg(details_border_color))
         );
 
     frame.render_widget(paragraph, area);
@@ -702,6 +705,14 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         if keys.toggle_select == " " { "Space".to_string() } else { keys.toggle_select.clone() };
 
     let help_text = vec![
+        Line::from(vec![
+    Span::styled(format!("{:<18}", "Tab"), key_style),
+    Span::raw("Next tab"),
+]),
+Line::from(vec![
+    Span::styled(format!("{:<18}", "Shift+Tab"), key_style),
+    Span::raw("Previous tab"),
+]),
         Line::from(vec![
             Span::styled("trx ", Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(format!("v{}", version)),
@@ -787,3 +798,4 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         area,
     );
 }
+
