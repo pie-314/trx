@@ -188,7 +188,7 @@ pub fn get_available_managers() -> Vec<String> {
         available.push("apt".to_string());
     }
 
-    // Zypper does not have a reliable quick exit like `--version` that 
+    // Zypper does not have a reliable quick exit like `--version` that
     // doesn't potentially trigger a slow refresh or output verbose messages.
     // So we check for its presence in PATH via `which zypper` as the safest and fastest methodology.
     if std::process::Command::new("which")
