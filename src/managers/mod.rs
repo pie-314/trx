@@ -3,6 +3,7 @@ pub mod arch;
 pub mod brew;
 pub mod pacman;
 pub mod yay;
+pub mod zypper;
 
 use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
@@ -94,9 +95,7 @@ impl PackageManager for CombinedManager {
     fn get_details(&self, pkg: &str, provider: &str) -> Option<HashMap<String, String>> {
         for m in &self.managers {
             // Check if this manager's name/prefix matches the provider
-            if provider.to_lowercase().contains(&m.name().to_lowercase())
-                || m.name().to_lowercase().contains(&provider.to_lowercase())
-            {
+            if manager_handles_provider(m.name(), provider) {
                 return m.get_details(pkg, provider);
             }
         }
@@ -189,6 +188,18 @@ pub fn get_available_managers() -> Vec<String> {
         available.push("apt".to_string());
     }
 
+    // Zypper does not have a reliable quick exit like `--version` that
+    // doesn't potentially trigger a slow refresh or output verbose messages.
+    // So we check for its presence in PATH via `which zypper` as the safest and fastest methodology.
+    if std::process::Command::new("which")
+        .arg("zypper")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        available.push("zypper".to_string());
+    }
+
     available
 }
 
@@ -209,6 +220,10 @@ pub fn get_system_manager(config: &crate::config::Config) -> Box<dyn PackageMana
 
     if available.contains(&"apt".to_string()) && enabled.contains(&"apt".to_string()) {
         managers.push(Box::new(apt::AptManager));
+    }
+
+    if available.contains(&"zypper".to_string()) && enabled.contains(&"zypper".to_string()) {
+        managers.push(Box::new(zypper::ZypperManager));
     }
 
     if managers.is_empty() {
@@ -267,4 +282,21 @@ pub fn parse_alternating_lines(lines: &[&str], manager: String, query: &str) -> 
     res.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
     res
+}
+
+pub fn manager_handles_provider(manager_name: &str, provider: &str) -> bool {
+    let m_lower = manager_name.to_lowercase();
+    let p_lower = provider.to_lowercase();
+    if p_lower.contains("pacman") || p_lower.contains("aur") || p_lower.contains("yay") {
+        m_lower.contains("arch") || m_lower.contains("pacman") || m_lower.contains("yay")
+    } else if p_lower.contains("brew") || p_lower.contains("homebrew") {
+        m_lower.contains("brew")
+    } else if p_lower.contains("apt") {
+        m_lower.contains("apt") || m_lower.contains("debian") || m_lower.contains("ubuntu")
+    } else if p_lower.contains("zypper") || p_lower.contains("opensuse") || p_lower.contains("suse")
+    {
+        m_lower.contains("zypper") || m_lower.contains("opensuse") || m_lower.contains("suse")
+    } else {
+        p_lower.contains(&m_lower) || m_lower.contains(&p_lower)
+    }
 }
