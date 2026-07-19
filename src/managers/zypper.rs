@@ -27,11 +27,7 @@ fn parse_xml_solvables(xml: &str, provider: &str, query: &str) -> Vec<Package> {
             continue;
         }
 
-        let score = if query.is_empty() {
-            1.0
-        } else {
-            crate::fuzzy::fuzzy_match(query, &name)
-        };
+        let score = if query.is_empty() { 1.0 } else { crate::fuzzy::fuzzy_match(query, &name) };
 
         packages.push(Package {
             provider: provider.to_string(),
@@ -85,10 +81,7 @@ impl PackageManager for ZypperManager {
             }
         }
 
-        let output = Command::new("zypper")
-            .args(["--xmlout", "search", query])
-            .output()
-            .ok();
+        let output = Command::new("zypper").args(["--xmlout", "search", query]).output().ok();
 
         let mut packages = if let Some(out) = output {
             // zypper exits with 0 (no results) or non-zero on real errors;
@@ -118,17 +111,11 @@ impl PackageManager for ZypperManager {
     // get_installed  (names only, used for highlighting)
     // -------------------------------------------------------------------------
     fn get_installed(&self) -> HashSet<String> {
-        let output = Command::new("zypper")
-            .args(["--xmlout", "search", "-i"])
-            .output()
-            .ok();
+        let output = Command::new("zypper").args(["--xmlout", "search", "-i"]).output().ok();
 
         if let Some(out) = output {
             let xml = String::from_utf8_lossy(&out.stdout);
-            parse_xml_solvables(&xml, "zypper", "")
-                .into_iter()
-                .map(|p| p.name)
-                .collect()
+            parse_xml_solvables(&xml, "zypper", "").into_iter().map(|p| p.name).collect()
         } else {
             HashSet::new()
         }
@@ -138,10 +125,7 @@ impl PackageManager for ZypperManager {
     // get_installed_details
     // -------------------------------------------------------------------------
     fn get_installed_details(&self) -> Vec<Package> {
-        let output = Command::new("zypper")
-            .args(["--xmlout", "search", "-i"])
-            .output()
-            .ok();
+        let output = Command::new("zypper").args(["--xmlout", "search", "-i"]).output().ok();
 
         if let Some(out) = output {
             let xml = String::from_utf8_lossy(&out.stdout);
@@ -158,10 +142,7 @@ impl PackageManager for ZypperManager {
     // Exit code 100 means "updates available" — that is NOT an error for zypper.
     // -------------------------------------------------------------------------
     fn get_updates(&self) -> Vec<Package> {
-        let output = Command::new("zypper")
-            .args(["--xmlout", "list-updates"])
-            .output()
-            .ok();
+        let output = Command::new("zypper").args(["--xmlout", "list-updates"]).output().ok();
 
         if let Some(out) = output {
             // Exit code 100 = updates available (treat like success)
@@ -197,10 +178,7 @@ impl PackageManager for ZypperManager {
 
         let pure_name = pkg.split('/').next_back().unwrap_or(pkg);
 
-        let output = Command::new("zypper")
-            .args(["info", pure_name])
-            .output()
-            .ok()?;
+        let output = Command::new("zypper").args(["info", pure_name]).output().ok()?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let mut info = HashMap::new();

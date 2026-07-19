@@ -191,7 +191,12 @@ pub fn get_available_managers() -> Vec<String> {
     // Zypper does not have a reliable quick exit like `--version` that 
     // doesn't potentially trigger a slow refresh or output verbose messages.
     // So we check for its presence in PATH via `which zypper` as the safest and fastest methodology.
-    if std::process::Command::new("which").arg("zypper").output().map(|o| o.status.success()).unwrap_or(false) {
+    if std::process::Command::new("which")
+        .arg("zypper")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         available.push("zypper".to_string());
     }
 
@@ -288,7 +293,8 @@ pub fn manager_handles_provider(manager_name: &str, provider: &str) -> bool {
         m_lower.contains("brew")
     } else if p_lower.contains("apt") {
         m_lower.contains("apt") || m_lower.contains("debian") || m_lower.contains("ubuntu")
-    } else if p_lower.contains("zypper") || p_lower.contains("opensuse") || p_lower.contains("suse") {
+    } else if p_lower.contains("zypper") || p_lower.contains("opensuse") || p_lower.contains("suse")
+    {
         m_lower.contains("zypper") || m_lower.contains("opensuse") || m_lower.contains("suse")
     } else {
         p_lower.contains(&m_lower) || m_lower.contains(&p_lower)
