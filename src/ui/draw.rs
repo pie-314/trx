@@ -330,12 +330,7 @@ fn draw_settings_tab(frame: &mut Frame, app: &App, area: Rect, theme: &crate::co
         if app.config.settings.auto_cleanup { "true" } else { "false" },
         true
     );
-    draw_setting!(
-        3,
-        "Search Debounce",
-        &format!("{}ms", app.config.settings.search_debounce_ms),
-        false
-    );
+    draw_setting!(3, "Search Debounce", &format!("{}ms", app.effective_debounce_ms), false);
     draw_setting!(4, "Default Tab", &app.config.settings.default_tab, false);
     draw_setting!(5, "Max Results", &app.config.settings.max_search_results.to_string(), false);
     draw_setting!(6, "Clear Cache", "Press Enter/Space", false);
@@ -726,7 +721,7 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         Line::from(""),
         Line::from(Span::styled("Search", section_style)),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.search_edit), key_style),
+            Span::styled(format!("{:<18}", keys.search_edit), key_style),
             Span::raw("Enter search mode"),
         ]),
         Line::from(vec![
@@ -740,19 +735,19 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
             Span::raw("Toggle package selection (also toggles settings on the Settings tab)"),
         ]),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.install), key_style),
+            Span::styled(format!("{:<18}", keys.install), key_style),
             Span::raw("Install selected packages"),
         ]),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.remove), key_style),
+            Span::styled(format!("{:<18}", keys.remove), key_style),
             Span::raw("Remove selected packages"),
         ]),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.system_upgrade), key_style),
+            Span::styled(format!("{:<18}", keys.system_upgrade), key_style),
             Span::raw("Full system upgrade"),
         ]),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.refresh_db), key_style),
+            Span::styled(format!("{:<18}", keys.refresh_db), key_style),
             Span::raw("Refresh package databases"),
         ]),
         Line::from(""),
@@ -764,10 +759,10 @@ fn draw_help_overlay(frame: &mut Frame, app: &App, theme: &crate::config::Theme)
         Line::from(""),
         Line::from(Span::styled("Other", section_style)),
         Line::from(vec![
-            Span::styled(format!("{:<18}", &keys.help), key_style),
+            Span::styled(format!("{:<18}", keys.help), key_style),
             Span::raw("Toggle this help overlay"),
         ]),
-        Line::from(vec![Span::styled(format!("{:<18}", &keys.quit), key_style), Span::raw("Quit")]),
+        Line::from(vec![Span::styled(format!("{:<18}", keys.quit), key_style), Span::raw("Quit")]),
         Line::from(""),
         Line::from(Span::styled(
             "Mouse: click tabs · scroll list/details · click checkboxes",

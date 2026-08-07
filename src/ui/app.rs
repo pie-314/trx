@@ -81,7 +81,12 @@ pub struct App {
     last_input_time: Instant,
     pending_search: bool,
     pub last_search_query: String,
-    pub popup_timer: Option<Instant>,
+    /// Instant when the most recent search was dispatched (measures search latency).
+    last_search_started: Option<Instant>,
+    /// How long the most recent search took to complete, in milliseconds.
+    last_search_duration_ms: u64,
+    /// Adaptively tuned debounce; never drops below the configured floor.
+    pub effective_debounce_ms: u64,
     pub history_entries: Vec<String>,
     pub history_list_state: ListState,
 
@@ -113,6 +118,7 @@ impl App {
 
         let manager = Arc::new(managers::get_system_manager(&config));
         let available_managers = managers::get_available_managers();
+        let search_debounce_ms_floor = config.settings.search_debounce_ms;
 
         let current_tab = match config.settings.default_tab.as_str() {
             "Installed" => Tab::Installed,
@@ -159,7 +165,9 @@ impl App {
             last_input_time: Instant::now(),
             pending_search: false,
             last_search_query: String::new(),
-            popup_timer: None,
+            last_search_started: None,
+            last_search_duration_ms: 0,
+            effective_debounce_ms: search_debounce_ms_floor,
             history_entries: Vec::new(),
             history_list_state: ListState::default(),
             search_input_mode: InputMode::Editing,
@@ -254,7 +262,7 @@ impl App {
 
     /// Checks if the debounce period has passed and executes the search if necessary.
     fn check_and_execute_search(&mut self) {
-        let debounce_ms = self.config.settings.search_debounce_ms;
+        let debounce_ms = self.effective_debounce_ms;
 
         if self.pending_search
             && self.last_input_time.elapsed() >= Duration::from_millis(debounce_ms)
@@ -270,6 +278,7 @@ impl App {
                 let manager = self.manager.clone();
                 let q_clone = query.clone();
 
+                self.last_search_started = Some(Instant::now());
                 thread::spawn(move || {
                     let all = manager.search(&q_clone);
                     let _ = tx.send((q_clone, all));
@@ -280,6 +289,20 @@ impl App {
                 self.messages.clear();
                 self.loading = false;
             }
+        }
+    }
+
+    /// Adapts the debounce window to the measured search latency:
+    /// slow searches (> 100 ms) raise it, fast searches (< 50 ms) lower it,
+    /// and the configured `search_debounce_ms` always acts as the floor.
+    fn adapt_debounce(&mut self) {
+        let floor = self.config.settings.search_debounce_ms;
+        let cap = 1000u64;
+
+        if self.last_search_duration_ms > 100 {
+            self.effective_debounce_ms = (self.effective_debounce_ms + 50).min(cap);
+        } else if self.last_search_duration_ms < 50 {
+            self.effective_debounce_ms = self.effective_debounce_ms.saturating_sub(50).max(floor);
         }
     }
     fn run_command(
@@ -648,6 +671,10 @@ impl App {
                 };
 
                 if is_current_tab_result {
+                    if let Some(started) = self.last_search_started.take() {
+                        self.last_search_duration_ms = started.elapsed().as_millis() as u64;
+                        self.adapt_debounce();
+                    }
                     self.packages = pkgs;
 
                     self.checked = self
@@ -1244,6 +1271,9 @@ impl App {
             3 => {
                 if let Ok(n) = val.parse() {
                     self.config.settings.search_debounce_ms = n;
+                    // A new floor: reset the adaptive window to the new value.
+                    self.effective_debounce_ms = n;
+                    self.last_search_duration_ms = 0;
                     saved = true;
                 }
             }
