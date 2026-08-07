@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 color-eyre = "0.6.5"
-ratatui = "0.29.0"
+ratatui = "0.30.2"
 textwrap = "0.16.2"
 lazy_static = "1.4"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
