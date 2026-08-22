@@ -1,6 +1,7 @@
 pub mod apt;
 pub mod arch;
 pub mod brew;
+pub mod flatpak;
 pub mod pacman;
 pub mod yay;
 
@@ -176,6 +177,9 @@ impl PackageManager for CombinedManager {
 pub fn get_available_managers() -> Vec<String> {
     let mut available = Vec::new();
 
+    if std::process::Command::new("flatpak").arg("--version").output().is_ok() {
+        available.push("flatpak".to_string());
+    }
     if std::process::Command::new("pacman").arg("--version").output().is_ok() {
         available.push("pacman".to_string());
         available.push("yay".to_string());
@@ -207,6 +211,10 @@ pub fn get_system_manager(config: &crate::config::Config) -> Box<dyn PackageMana
         managers.push(Box::new(arch::ArchManager::new(config.aur_helper.clone())));
     }
 
+    if available.contains(&"flatpak".to_string()) && enabled.contains(&"flatpak".to_string()) {
+        managers.push(Box::new(flatpak::FlatpakManager));
+    }
+
     if available.contains(&"apt".to_string()) && enabled.contains(&"apt".to_string()) {
         managers.push(Box::new(apt::AptManager));
     }
@@ -214,6 +222,9 @@ pub fn get_system_manager(config: &crate::config::Config) -> Box<dyn PackageMana
     if managers.is_empty() {
         if available.contains(&"pacman".to_string()) {
             return Box::new(arch::ArchManager::new(config.aur_helper.clone()));
+        }
+        if available.contains(&"flatpak".to_string()) {
+            return Box::new(flatpak::FlatpakManager);
         }
         return Box::new(apt::AptManager);
     }
